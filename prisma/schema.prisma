@@ -51,6 +51,7 @@ model GroupMember {
   member Profile @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
   @@id([groupId, memberId])
+  @@index([memberId])
   @@map("group_members")
 }
 
@@ -69,6 +70,8 @@ model Expense {
   payer  Profile        @relation(fields: [payerId], references: [id], onDelete: SetNull)
   splits ExpenseSplit[]
 
+  @@index([groupId, createdAt])
+  @@index([payerId])
   @@map("expenses")
 }
 
@@ -81,6 +84,8 @@ model ExpenseSplit {
   expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
   member  Profile @relation(fields: [memberId], references: [id], onDelete: Cascade)
 
+  @@index([expenseId])
+  @@index([memberId])
   @@map("expense_splits")
 }
 
@@ -98,5 +103,8 @@ model Settlement {
   from  Profile @relation("SettlementFrom", fields: [fromMember], references: [id], onDelete: Cascade)
   to    Profile @relation("SettlementTo", fields: [toMember], references: [id], onDelete: Cascade)
 
+  @@index([groupId])
+  @@index([fromMember])
+  @@index([toMember])
   @@map("settlements")
 }
