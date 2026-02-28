@@ -25,6 +25,7 @@ interface DashboardClientProps {
 
 export function DashboardClient({ data, currentUserId }: DashboardClientProps) {
   const netBalance = data.youAreOwed - data.youOwe;
+  const currency = data.primaryCurrency;
 
   return (
     <div className="space-y-8">
@@ -40,7 +41,7 @@ export function DashboardClient({ data, currentUserId }: DashboardClientProps) {
               <div>
                 <p className="text-sm text-muted-foreground">You owe</p>
                 <p className="text-2xl font-bold font-mono tabular-nums text-orange-600 dark:text-orange-400">
-                  {formatCurrency(data.youOwe)}
+                  {formatCurrency(data.youOwe, currency)}
                 </p>
               </div>
             </div>
@@ -57,7 +58,7 @@ export function DashboardClient({ data, currentUserId }: DashboardClientProps) {
               <div>
                 <p className="text-sm text-muted-foreground">Owed to you</p>
                 <p className="text-2xl font-bold font-mono tabular-nums text-emerald-600 dark:text-emerald-400">
-                  {formatCurrency(data.youAreOwed)}
+                  {formatCurrency(data.youAreOwed, currency)}
                 </p>
               </div>
             </div>
@@ -101,7 +102,7 @@ export function DashboardClient({ data, currentUserId }: DashboardClientProps) {
                   }`}
                 >
                   {netBalance > 0 && "+"}
-                  {formatCurrency(Math.abs(netBalance))}
+                  {formatCurrency(Math.abs(netBalance), currency)}
                 </p>
               </div>
             </div>

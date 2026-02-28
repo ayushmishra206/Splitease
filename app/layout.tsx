@@ -18,6 +18,10 @@ export const metadata: Metadata = {
   title: "SplitEase",
   description:
     "SplitEase helps you track shared expenses, settle balances, and stay organized with friends and family.",
+  icons: {
+    icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
+    apple: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({

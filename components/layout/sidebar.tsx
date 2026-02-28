@@ -17,6 +17,7 @@ import {
 import { useTheme } from "next-themes";
 import { signOut } from "@/actions/auth";
 import { cn } from "@/lib/utils";
+import { Logo } from "@/components/ui/logo";
 
 const navItems = [
   { label: "Dashboard", path: "/", icon: LayoutDashboard },
@@ -58,9 +59,7 @@ export function Sidebar({ user }: SidebarProps) {
       <div className="flex h-full flex-col">
         {/* Logo */}
         <div className={cn("flex items-center gap-3 border-b border-border px-4 py-5", collapsed && "justify-center px-2")}>
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white dark:bg-emerald-600 font-bold text-sm">
-            SE
-          </div>
+          <Logo size="sm" />
           {!collapsed && (
             <div className="min-w-0">
               <p className="text-sm font-semibold truncate">SplitEase</p>

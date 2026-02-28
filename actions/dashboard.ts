@@ -25,6 +25,7 @@ export type DashboardData = {
   totalSettlements: number;
   youOwe: number;
   youAreOwed: number;
+  primaryCurrency: string;
   recentExpenses: Array<{
     id: string;
     description: string;
@@ -54,6 +55,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
       totalSettlements: 0,
       youOwe: 0,
       youAreOwed: 0,
+      primaryCurrency: "USD",
       recentExpenses: [],
       groupSummaries: [],
     };
@@ -237,12 +239,21 @@ export async function fetchDashboardData(): Promise<DashboardData> {
     });
   }
 
+  // Determine primary currency (most common among groups)
+  const currencyCounts: Record<string, number> = {};
+  for (const g of groups) {
+    currencyCounts[g.currency] = (currencyCounts[g.currency] ?? 0) + 1;
+  }
+  const primaryCurrency = Object.entries(currencyCounts)
+    .sort((a, b) => b[1] - a[1])[0]?.[0] ?? "USD";
+
   return {
     totalGroups: groups.length,
     totalExpenses: expenseCount,
     totalSettlements: settlementCount,
     youOwe: Math.round(totalYouOwe * 100) / 100,
     youAreOwed: Math.round(totalYouAreOwed * 100) / 100,
+    primaryCurrency,
     recentExpenses: recentExpenses.map((e) => ({
       id: e.id,
       description: e.description,
