@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { sendEmail } from "@/lib/email/send";
 import { settlementRecordedEmail } from "@/lib/email/templates";
+import { sendPushNotification } from "@/lib/push";
 
 export async function fetchSettlements(groupId?: string) {
   const user = await getAuthenticatedUser();
@@ -85,6 +86,22 @@ export async function createSettlement(input: {
       `Settlement in ${groupName}`,
       settlementRecordedEmail(toName, amountStr, currency, groupName, fromName, toName)
     );
+  }
+
+  // Send push notifications
+  const pushSubs = await prisma.pushSubscription.findMany({
+    where: {
+      userId: {
+        in: [input.fromMember, input.toMember].filter((id) => id !== user.id),
+      },
+    },
+  });
+  for (const sub of pushSubs) {
+    void sendPushNotification(sub, {
+      title: `Settlement in ${groupName}`,
+      body: `${fromName} paid ${toName} ${amountStr} ${currency}`,
+      url: `/groups/${input.groupId}`,
+    });
   }
 
   revalidatePath("/settlements");

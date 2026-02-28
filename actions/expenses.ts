@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { sendEmail } from "@/lib/email/send";
 import { expenseAddedEmail } from "@/lib/email/templates";
+import { sendPushNotification } from "@/lib/push";
 
 function computeNextOccurrence(date: Date, rule: string): Date {
   const next = new Date(date);
@@ -135,6 +136,24 @@ export async function createExpense(input: {
         payerName
       )
     );
+  }
+
+  // Send push notifications
+  const pushSubs = await prisma.pushSubscription.findMany({
+    where: {
+      userId: {
+        in: groupMembers
+          .filter((gm) => gm.member.id !== input.payerId)
+          .map((gm) => gm.member.id),
+      },
+    },
+  });
+  for (const sub of pushSubs) {
+    void sendPushNotification(sub, {
+      title: `New expense in ${expense.group.name}`,
+      body: `${payerName} added "${expense.description}" — ${parseFloat(String(expense.amount)).toFixed(2)} ${expense.group.currency}`,
+      url: `/groups/${input.groupId}`,
+    });
   }
 
   revalidatePath("/expenses");

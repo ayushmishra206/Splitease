@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { exportUserData, importUserData } from "@/actions/backup";
 import { changePassword } from "@/actions/auth";
+import { subscribePush, unsubscribePush } from "@/actions/push";
 import { toast } from "sonner";
 import {
   Download,
@@ -13,6 +14,7 @@ import {
   Shield,
   Palette,
   Database,
+  Bell,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -27,6 +29,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { Lock } from "lucide-react";
 
@@ -44,8 +47,73 @@ export function SettingsClient({ profile }: SettingsClientProps) {
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const passwordFormRef = useRef<HTMLFormElement>(null);
+
+  // Check if push notifications are already subscribed on mount
+  useEffect(() => {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    navigator.serviceWorker.getRegistration("/sw.js").then(async (reg) => {
+      if (!reg) return;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) setPushEnabled(true);
+    });
+  }, []);
+
+  const handlePushToggle = useCallback(async (enabled: boolean) => {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      toast.error("Push notifications are not supported in this browser");
+      return;
+    }
+
+    setPushLoading(true);
+    try {
+      if (enabled) {
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") {
+          toast.error("Notification permission denied");
+          setPushLoading(false);
+          return;
+        }
+
+        const reg = await navigator.serviceWorker.register("/sw.js");
+        await navigator.serviceWorker.ready;
+
+        const sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+        });
+
+        const json = sub.toJSON();
+        await subscribePush({
+          endpoint: sub.endpoint,
+          p256dh: json.keys!.p256dh!,
+          auth: json.keys!.auth!,
+        });
+
+        setPushEnabled(true);
+        toast.success("Push notifications enabled");
+      } else {
+        const reg = await navigator.serviceWorker.getRegistration("/sw.js");
+        if (reg) {
+          const sub = await reg.pushManager.getSubscription();
+          if (sub) {
+            await unsubscribePush(sub.endpoint);
+            await sub.unsubscribe();
+          }
+        }
+
+        setPushEnabled(false);
+        toast.success("Push notifications disabled");
+      }
+    } catch {
+      toast.error("Failed to update push notification settings");
+    } finally {
+      setPushLoading(false);
+    }
+  }, []);
 
   const handleChangePassword = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -250,6 +318,37 @@ export function SettingsClient({ profile }: SettingsClientProps) {
                 </p>
               </div>
               <ThemeToggle className="gap-2" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Notifications */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/30 p-1">
+                <Bell className="size-4 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              Notifications
+            </CardTitle>
+            <CardDescription>
+              Manage how you receive notifications
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Push Notifications</p>
+                <p className="text-sm text-muted-foreground">
+                  Receive browser notifications for new expenses and settlements
+                </p>
+              </div>
+              <Switch
+                checked={pushEnabled}
+                onCheckedChange={handlePushToggle}
+                disabled={pushLoading}
+                aria-label="Toggle push notifications"
+              />
             </div>
           </CardContent>
         </Card>
