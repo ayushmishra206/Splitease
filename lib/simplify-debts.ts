@@ -84,10 +84,10 @@ export function computeNetBalances(
     }
   }
 
-  // Settlements: fromMember paid toMember
+  // Settlements: fromMember paid toMember (settles debt, so fromMember's net increases)
   for (const s of settlements) {
-    net[s.fromMember] = (net[s.fromMember] ?? 0) - s.amount;
-    net[s.toMember] = (net[s.toMember] ?? 0) + s.amount;
+    net[s.fromMember] = (net[s.fromMember] ?? 0) + s.amount;
+    net[s.toMember] = (net[s.toMember] ?? 0) - s.amount;
   }
 
   return net;

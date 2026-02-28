@@ -88,14 +88,15 @@ describe("computeNetBalances", () => {
       ],
       [{ fromMember: "b", toMember: "a", amount: 50 }]
     );
-    // Settlement: b paid a 50, so net[b] -= 50, net[a] += 50
-    // a: paid 100 - owes 50 + received settlement 50 = 100
-    // b: owes 50 + paid settlement 50 = -100
-    expect(result.a).toBe(100);
-    expect(result.b).toBe(-100);
+    // After expense: a = +50, b = -50
+    // Settlement: b pays a 50 to settle debt → b's net increases, a's net decreases
+    // a: 50 - 50 = 0
+    // b: -50 + 50 = 0
+    expect(result.a).toBeCloseTo(0);
+    expect(result.b).toBeCloseTo(0);
   });
 
-  it("skips expenses with null payer", () => {
+  it("skips expenses with null payer entirely", () => {
     const result = computeNetBalances(
       [
         {
@@ -106,7 +107,7 @@ describe("computeNetBalances", () => {
       ],
       []
     );
-    // null payer means the expense is skipped entirely (both payer credit and splits)
+    // null payer → entire expense is skipped (continue before processing splits)
     expect(result).toEqual({});
   });
 
@@ -133,11 +134,10 @@ describe("computeNetBalances", () => {
       ],
       [{ fromMember: "c", toMember: "a", amount: 10 }]
     );
-    // a: paid 60 - owes 20 - owes 15 + received 10 = 35
-    expect(result.a).toBe(35);
-    // b: paid 30 - owes 20 - owes 15 = -5
+    // After expenses: a: 60-20-15 = 25, b: 30-20-15 = -5, c: -20
+    // Settlement: c pays a 10 → c: -20+10 = -10, a: 25-10 = 15
+    expect(result.a).toBe(15);
     expect(result.b).toBe(-5);
-    // c: -20 - 10 = -30
-    expect(result.c).toBe(-30);
+    expect(result.c).toBe(-10);
   });
 });
