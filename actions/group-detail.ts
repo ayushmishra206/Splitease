@@ -47,12 +47,7 @@ export type GroupDetailData = {
 export async function fetchGroupDetail(groupId: string): Promise<GroupDetailData> {
   const user = await getAuthenticatedUser();
 
-  // Verify membership
-  const membership = await prisma.groupMember.findUnique({
-    where: { groupId_memberId: { groupId, memberId: user.id } },
-  });
-  if (!membership) throw new Error("Not a member of this group");
-
+  // Fetch group + membership check + all data in parallel (4 queries → 1 round-trip)
   const [group, members, expenses, settlements] = await Promise.all([
     prisma.group.findUniqueOrThrow({
       where: { id: groupId },
@@ -79,6 +74,10 @@ export async function fetchGroupDetail(groupId: string): Promise<GroupDetailData
       orderBy: { createdAt: "desc" },
     }),
   ]);
+
+  // Verify membership from the already-fetched members list
+  const isMember = members.some((m) => m.memberId === user.id);
+  if (!isMember) throw new Error("Not a member of this group");
 
   return {
     group,

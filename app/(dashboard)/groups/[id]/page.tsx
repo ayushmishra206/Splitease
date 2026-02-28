@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthenticatedUser } from "@/lib/auth";
 import { fetchGroupDetail } from "@/actions/group-detail";
 import { GroupDetailClient } from "@/components/groups/group-detail-client";
 
@@ -9,13 +9,13 @@ export default async function GroupDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
 
-  let data;
+  let user, data;
   try {
-    data = await fetchGroupDetail(id);
+    [user, data] = await Promise.all([
+      getAuthenticatedUser(),
+      fetchGroupDetail(id),
+    ]);
   } catch {
     redirect("/groups");
   }

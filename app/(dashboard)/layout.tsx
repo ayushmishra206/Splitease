@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { prisma } from "@/lib/prisma";
+import { getAuthenticatedUser } from "@/lib/auth";
+import { syncProfile } from "@/lib/sync-profile";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { MobileNav } from "@/components/layout/mobile-nav";
@@ -10,27 +10,16 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user;
+  try {
+    user = await getAuthenticatedUser();
+  } catch {
+    redirect("/login");
+  }
 
-  if (!user) redirect("/login");
+  // Fire-and-forget profile sync — don't block render
+  syncProfile(user);
 
-  // Sync profile
-  const fullName =
-    user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "User";
-  await prisma.profile.upsert({
-    where: { id: user.id },
-    update: { fullName, avatarUrl: user.user_metadata?.avatar_url },
-    create: {
-      id: user.id,
-      fullName,
-      avatarUrl: user.user_metadata?.avatar_url,
-    },
-  });
-
-  // Serialize user for client components
   const serializedUser = {
     id: user.id,
     email: user.email,

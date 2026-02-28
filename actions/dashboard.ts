@@ -47,76 +47,147 @@ export async function fetchDashboardData(): Promise<DashboardData> {
   });
   const groupIds = memberships.map((m) => m.groupId);
 
-  const [groups, expenses, settlements] = await Promise.all([
-    prisma.group.findMany({
-      where: { id: { in: groupIds } },
-      select: { id: true, name: true, currency: true },
-    }),
-    prisma.expense.findMany({
-      where: { groupId: { in: groupIds } },
-      include: {
-        group: { select: { id: true, name: true, currency: true } },
-        payer: { select: { id: true, fullName: true } },
-        splits: {
-          include: { member: { select: { id: true, fullName: true } } },
+  if (groupIds.length === 0) {
+    return {
+      totalGroups: 0,
+      totalExpenses: 0,
+      totalSettlements: 0,
+      youOwe: 0,
+      youAreOwed: 0,
+      recentExpenses: [],
+      groupSummaries: [],
+    };
+  }
+
+  // Fetch everything in parallel — groups, balance data, recent expenses, counts
+  const [groups, expenseSplits, settlements, recentExpenses, expenseCount, settlementCount] =
+    await Promise.all([
+      // Groups with member names
+      prisma.group.findMany({
+        where: { id: { in: groupIds } },
+        select: {
+          id: true,
+          name: true,
+          currency: true,
+          members: {
+            select: { member: { select: { id: true, fullName: true } } },
+          },
         },
-      },
-      orderBy: { expenseDate: "desc" },
-    }),
-    prisma.settlement.findMany({
-      where: { groupId: { in: groupIds } },
-      include: {
-        from: { select: { id: true, fullName: true } },
-        to: { select: { id: true, fullName: true } },
-      },
-    }),
-  ]);
+      }),
+      // Only the fields needed for balance calculation (no full includes)
+      prisma.expenseSplit.findMany({
+        where: { expense: { groupId: { in: groupIds } } },
+        select: {
+          memberId: true,
+          share: true,
+          expense: {
+            select: {
+              groupId: true,
+              payerId: true,
+              amount: true,
+            },
+          },
+        },
+      }),
+      // Settlements — minimal fields for balance calc
+      prisma.settlement.findMany({
+        where: { groupId: { in: groupIds } },
+        select: {
+          groupId: true,
+          fromMember: true,
+          toMember: true,
+          amount: true,
+          createdAt: true,
+        },
+      }),
+      // Only 5 recent expenses with display data
+      prisma.expense.findMany({
+        where: { groupId: { in: groupIds } },
+        select: {
+          id: true,
+          description: true,
+          amount: true,
+          expenseDate: true,
+          payerId: true,
+          groupId: true,
+          createdAt: true,
+          payer: { select: { fullName: true } },
+          group: { select: { name: true, currency: true } },
+        },
+        orderBy: { expenseDate: "desc" },
+        take: 5,
+      }),
+      // Counts (fast aggregate, no data transfer)
+      prisma.expense.count({ where: { groupId: { in: groupIds } } }),
+      prisma.settlement.count({ where: { groupId: { in: groupIds } } }),
+    ]);
+
+  // Build member name lookup from groups
+  const memberNamesByGroup: Record<string, Record<string, string>> = {};
+  for (const group of groups) {
+    memberNamesByGroup[group.id] = {};
+    for (const gm of group.members) {
+      memberNamesByGroup[group.id][gm.member.id] = gm.member.fullName ?? "Unknown";
+    }
+  }
 
   // Calculate net balances per group
-  // For each group, track balances[memberId] relative to current user
   const groupSummaries: GroupSummary[] = [];
   let totalYouOwe = 0;
   let totalYouAreOwed = 0;
 
+  // Pre-index splits and settlements by groupId
+  const splitsByGroup: Record<string, typeof expenseSplits> = {};
+  for (const split of expenseSplits) {
+    const gid = split.expense.groupId;
+    (splitsByGroup[gid] ??= []).push(split);
+  }
+
+  const settlementsByGroup: Record<string, typeof settlements> = {};
+  for (const s of settlements) {
+    (settlementsByGroup[s.groupId] ??= []).push(s);
+  }
+
   for (const group of groups) {
-    const groupExpenses = expenses.filter((e) => e.groupId === group.id);
-    const groupSettlements = settlements.filter((s) => s.groupId === group.id);
+    const groupSplits = splitsByGroup[group.id] ?? [];
+    const groupSettlements = settlementsByGroup[group.id] ?? [];
+    const memberNames = memberNamesByGroup[group.id] ?? {};
 
     // net[memberId] = how much memberId owes current user
-    // positive = they owe me, negative = I owe them
     const net: Record<string, number> = {};
+    let totalExp = 0;
 
-    for (const expense of groupExpenses) {
-      const payerId = expense.payerId;
-      for (const split of expense.splits) {
-        const share = parseFloat(String(split.share));
-        if (payerId === user.id && split.memberId !== user.id) {
-          // I paid, they owe me their share
-          net[split.memberId] = (net[split.memberId] ?? 0) + share;
-        } else if (payerId !== user.id && split.memberId === user.id) {
-          // They paid, I owe them my share
-          net[payerId] = (net[payerId] ?? 0) - share;
-        }
+    // Track unique expense amounts for total calculation
+    const seenExpenses = new Set<string>();
+
+    for (const split of groupSplits) {
+      const payerId = split.expense.payerId;
+      const share = parseFloat(String(split.share));
+
+      // Track total expenses (deduplicate by expense)
+      const expKey = `${payerId}-${split.expense.amount}`;
+      if (!seenExpenses.has(expKey)) {
+        // We don't have expense ID here, use a different approach
       }
+
+      if (payerId === user.id && split.memberId !== user.id) {
+        net[split.memberId] = (net[split.memberId] ?? 0) + share;
+      } else if (payerId !== user.id && split.memberId === user.id) {
+        net[payerId] = (net[payerId] ?? 0) - share;
+      }
+    }
+
+    // Calculate total expenses from splits (sum of all shares = total amount)
+    for (const split of groupSplits) {
+      totalExp += parseFloat(String(split.share));
     }
 
     for (const settlement of groupSettlements) {
       const amount = parseFloat(String(settlement.amount));
       if (settlement.fromMember === user.id) {
-        // I paid them, reduce what I owe
         net[settlement.toMember] = (net[settlement.toMember] ?? 0) + amount;
       } else if (settlement.toMember === user.id) {
-        // They paid me, reduce what they owe
         net[settlement.fromMember] = (net[settlement.fromMember] ?? 0) - amount;
-      }
-    }
-
-    // Collect member names
-    const memberNames: Record<string, string> = {};
-    for (const expense of groupExpenses) {
-      memberNames[expense.payerId] = expense.payer.fullName ?? "Unknown";
-      for (const split of expense.splits) {
-        memberNames[split.memberId] = split.member.fullName ?? "Unknown";
       }
     }
 
@@ -129,27 +200,27 @@ export async function fetchDashboardData(): Promise<DashboardData> {
       }))
       .sort((a, b) => b.amount - a.amount);
 
-    const totalExp = groupExpenses.reduce(
-      (sum, e) => sum + parseFloat(String(e.amount)),
-      0
-    );
-
     for (const b of balances) {
       if (b.amount > 0) totalYouAreOwed += b.amount;
       else totalYouOwe += Math.abs(b.amount);
     }
 
-    const lastExpense = groupExpenses[0];
-    const lastSettlement = groupSettlements.sort((a, b) =>
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    )[0];
-    const lastActivity = lastExpense?.createdAt
+    // Last activity
+    const lastSettlement = groupSettlements.length > 0
+      ? groupSettlements.reduce((latest, s) =>
+          new Date(s.createdAt) > new Date(latest.createdAt) ? s : latest
+        )
+      : null;
+
+    // Find most recent expense date from recentExpenses if it's in this group
+    const lastExpenseInGroup = recentExpenses.find((e) => e.groupId === group.id);
+    const lastActivity = lastExpenseInGroup?.createdAt
       ? lastSettlement?.createdAt
         ? new Date(Math.max(
-            new Date(lastExpense.createdAt).getTime(),
-            new Date(lastSettlement.createdAt).getTime()
+            new Date(lastExpenseInGroup.createdAt).getTime(),
+            new Date(lastSettlement.createdAt).getTime(),
           ))
-        : new Date(lastExpense.createdAt)
+        : new Date(lastExpenseInGroup.createdAt)
       : lastSettlement?.createdAt
         ? new Date(lastSettlement.createdAt)
         : null;
@@ -165,24 +236,22 @@ export async function fetchDashboardData(): Promise<DashboardData> {
     });
   }
 
-  const recentExpenses = expenses.slice(0, 5).map((e) => ({
-    id: e.id,
-    description: e.description,
-    amount: parseFloat(String(e.amount)),
-    currency: e.group.currency,
-    groupName: e.group.name,
-    payerName: e.payer.fullName ?? "Unknown",
-    payerId: e.payerId,
-    expenseDate: e.expenseDate,
-  }));
-
   return {
     totalGroups: groups.length,
-    totalExpenses: expenses.length,
-    totalSettlements: settlements.length,
+    totalExpenses: expenseCount,
+    totalSettlements: settlementCount,
     youOwe: Math.round(totalYouOwe * 100) / 100,
     youAreOwed: Math.round(totalYouAreOwed * 100) / 100,
-    recentExpenses,
+    recentExpenses: recentExpenses.map((e) => ({
+      id: e.id,
+      description: e.description,
+      amount: parseFloat(String(e.amount)),
+      currency: e.group.currency,
+      groupName: e.group.name,
+      payerName: e.payer.fullName ?? "Unknown",
+      payerId: e.payerId,
+      expenseDate: e.expenseDate,
+    })),
     groupSummaries,
   };
 }
