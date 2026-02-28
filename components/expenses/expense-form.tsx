@@ -116,7 +116,7 @@ export function ExpenseForm({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(expenseSchema) as any,
     defaultValues: {
-      groupId: defaultValues?.groupId ?? "",
+      groupId: defaultValues?.groupId ?? groups.filter((g) => g.status !== "archived")[0]?.id ?? "",
       description: defaultValues?.description ?? "",
       amount: defaultValues?.amount ?? (undefined as unknown as number),
       payerId: defaultValues?.payerId ?? "",
