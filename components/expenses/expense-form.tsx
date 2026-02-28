@@ -42,6 +42,7 @@ type GroupWithMembers = {
   name: string;
   description: string | null;
   currency: string;
+  status?: string;
   ownerId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -344,7 +345,7 @@ export function ExpenseForm({
             <SelectValue placeholder="Select a group" />
           </SelectTrigger>
           <SelectContent>
-            {groups.map((g) => (
+            {groups.filter((g) => g.status !== "archived").map((g) => (
               <SelectItem key={g.id} value={g.id}>
                 {g.name} ({g.currency})
               </SelectItem>
@@ -400,7 +401,7 @@ export function ExpenseForm({
             min="0.01"
             placeholder="0.00"
             className="font-mono"
-            {...register("amount")}
+            {...register("amount", { valueAsNumber: true })}
             aria-invalid={!!errors.amount}
           />
           {errors.amount && (

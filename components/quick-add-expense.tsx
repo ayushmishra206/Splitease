@@ -20,6 +20,7 @@ type GroupWithMembers = {
   name: string;
   description: string | null;
   currency: string;
+  status?: string;
   ownerId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -50,7 +51,8 @@ export function QuickAddExpense({ groups, currentUserId }: QuickAddExpenseProps)
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
-  if (groups.length === 0) return null;
+  const activeGroups = groups.filter((g) => g.status !== "archived");
+  if (activeGroups.length === 0) return null;
 
   const handleSubmit = async (data: {
     groupId: string;
