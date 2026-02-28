@@ -23,7 +23,8 @@ model User {
   expenseSplits   ExpenseSplit[]
   settlementsFrom Settlement[]   @relation("SettlementFrom")
   settlementsTo   Settlement[]   @relation("SettlementTo")
-  resetTokens     PasswordResetToken[]
+  resetTokens       PasswordResetToken[]
+  pushSubscriptions PushSubscription[]
 
   @@map("users")
 }
@@ -34,6 +35,7 @@ model Group {
   name        String
   description String?
   currency    String   @default("USD")
+  status      String   @default("active") @db.VarChar(20)
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -68,9 +70,13 @@ model Expense {
   category    String?  @db.VarChar(50)
   splitType   String   @default("equal") @map("split_type") @db.VarChar(20)
   expenseDate DateTime @map("expense_date") @db.Date
-  notes       String?
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  notes           String?
+  receiptUrl      String?  @map("receipt_url")
+  isRecurring     Boolean  @default(false) @map("is_recurring")
+  recurrenceRule  String?  @map("recurrence_rule") @db.VarChar(50)
+  nextOccurrence  DateTime? @map("next_occurrence") @db.Timestamptz(6)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   group  Group          @relation(fields: [groupId], references: [id], onDelete: Cascade)
   payer  User?          @relation(fields: [payerId], references: [id], onDelete: SetNull)
@@ -128,4 +134,19 @@ model PasswordResetToken {
   @@index([token])
   @@index([userId])
   @@map("password_reset_tokens")
+}
+
+model PushSubscription {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  endpoint  String
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, endpoint])
+  @@index([userId])
+  @@map("push_subscriptions")
 }
