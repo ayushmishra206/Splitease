@@ -58,6 +58,7 @@ export async function createExpense(input: {
   payerId: string;
   expenseDate: string;
   notes?: string;
+  receiptUrl?: string;
   splits: { memberId: string; share: number }[];
 }) {
   const user = await getAuthenticatedUser();
@@ -77,6 +78,7 @@ export async function createExpense(input: {
       payerId: input.payerId,
       expenseDate: new Date(input.expenseDate),
       notes: input.notes,
+      receiptUrl: input.receiptUrl,
       splits: {
         create: input.splits.map((s) => ({
           memberId: s.memberId,
@@ -139,6 +141,7 @@ export async function updateExpense(input: {
   payerId: string;
   expenseDate: string;
   notes?: string;
+  receiptUrl?: string;
   splits: { memberId: string; share: number }[];
 }) {
   const user = await getAuthenticatedUser();
@@ -162,6 +165,7 @@ export async function updateExpense(input: {
         payerId: input.payerId,
         expenseDate: new Date(input.expenseDate),
         notes: input.notes,
+        receiptUrl: input.receiptUrl,
         splits: {
           create: input.splits.map((s) => ({
             memberId: s.memberId,

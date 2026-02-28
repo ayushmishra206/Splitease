@@ -4,8 +4,11 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { toast } from "sonner";
 import { computeEqualSplit, formatCurrency } from "@/lib/utils";
 import { CATEGORIES, type ExpenseCategory } from "@/lib/categories";
+import { useUploadThing } from "@/lib/uploadthing";
+import { Upload, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -71,6 +74,7 @@ interface ExpenseFormProps {
     payerId: string;
     expenseDate: string;
     notes?: string;
+    receiptUrl?: string;
     splitMethod: "equal" | "custom";
     customSplits?: Record<string, number>;
     participantIds?: string[];
@@ -84,6 +88,7 @@ interface ExpenseFormProps {
     payerId: string;
     expenseDate: string;
     notes?: string;
+    receiptUrl?: string;
     splits: { memberId: string; share: number }[];
   }) => Promise<void>;
   onCancel: () => void;
@@ -134,6 +139,14 @@ export function ExpenseForm({
     defaultValues?.customSplits ?? {}
   );
   const [splitError, setSplitError] = useState<string | null>(null);
+
+  const [receiptUrl, setReceiptUrl] = useState<string | undefined>(
+    defaultValues?.receiptUrl
+  );
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const { startUpload } = useUploadThing("receiptUploader");
 
   const selectedGroup = useMemo(
     () => groups.find((g) => g.id === groupId),
@@ -283,6 +296,23 @@ export function ExpenseForm({
     const splits = validateSplits();
     if (!splits) return;
 
+    let finalReceiptUrl = receiptUrl;
+
+    // Upload receipt if a new file was selected
+    if (receiptFile) {
+      setUploading(true);
+      try {
+        const res = await startUpload([receiptFile]);
+        if (res?.[0]?.ufsUrl) {
+          finalReceiptUrl = res[0].ufsUrl;
+        }
+      } catch {
+        // Upload failed, continue without receipt
+      } finally {
+        setUploading(false);
+      }
+    }
+
     await onSubmit({
       groupId: data.groupId,
       description: data.description,
@@ -292,6 +322,7 @@ export function ExpenseForm({
       payerId: data.payerId,
       expenseDate: data.expenseDate,
       notes: data.notes || undefined,
+      receiptUrl: finalReceiptUrl,
       splits,
     });
   };
@@ -601,17 +632,75 @@ export function ExpenseForm({
         )}
       </div>
 
+      {/* Receipt */}
+      <div className="space-y-2">
+        <Label>Receipt (optional)</Label>
+        {receiptUrl && !receiptFile ? (
+          <div className="relative inline-block">
+            <img
+              src={receiptUrl}
+              alt="Receipt"
+              className="h-24 w-24 rounded-lg border object-cover"
+            />
+            <button
+              type="button"
+              onClick={() => setReceiptUrl(undefined)}
+              className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground text-xs"
+            >
+              <X className="size-3" />
+            </button>
+          </div>
+        ) : receiptFile ? (
+          <div className="relative inline-block">
+            <img
+              src={URL.createObjectURL(receiptFile)}
+              alt="Receipt preview"
+              className="h-24 w-24 rounded-lg border object-cover"
+            />
+            <button
+              type="button"
+              onClick={() => setReceiptFile(null)}
+              className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground text-xs"
+            >
+              <X className="size-3" />
+            </button>
+          </div>
+        ) : (
+          <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border px-4 py-3 text-sm text-muted-foreground transition-colors hover:border-foreground/30 hover:bg-muted/50">
+            <Upload className="size-4" />
+            <span>Upload receipt image</span>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  if (file.size > 4 * 1024 * 1024) {
+                    toast.error("File must be under 4MB");
+                    return;
+                  }
+                  setReceiptFile(file);
+                }
+              }}
+            />
+          </label>
+        )}
+      </div>
+
       {/* Actions */}
       <div className="flex justify-end gap-2 pt-2">
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting
-            ? "Saving..."
-            : defaultValues
-              ? "Save Changes"
-              : "Add Expense"}
+        <Button type="submit" disabled={isSubmitting || uploading}>
+          {uploading
+            ? "Uploading..."
+            : isSubmitting
+              ? "Saving..."
+              : defaultValues
+                ? "Save Changes"
+                : "Add Expense"}
         </Button>
       </div>
     </form>
