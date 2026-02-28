@@ -2,40 +2,51 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  FiBarChart2,
-  FiUsers,
-  FiFileText,
-  FiCheckCircle,
-  FiSettings,
-} from "react-icons/fi";
+import { LayoutDashboard, Users, Plus, Receipt, Settings } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const navItems = [
-  { label: "Dashboard", path: "/", icon: FiBarChart2 },
-  { label: "Groups", path: "/groups", icon: FiUsers },
-  { label: "Expenses", path: "/expenses", icon: FiFileText },
-  { label: "Settlements", path: "/settlements", icon: FiCheckCircle },
-  { label: "Settings", path: "/settings", icon: FiSettings },
+  { label: "Home", path: "/", icon: LayoutDashboard },
+  { label: "Groups", path: "/groups", icon: Users },
+  { label: "Add", path: "/expenses?create=true", icon: Plus, isCenter: true },
+  { label: "Expenses", path: "/expenses", icon: Receipt },
+  { label: "Settings", path: "/settings", icon: Settings },
 ];
 
 export function MobileNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 md:hidden">
-      <div className="mx-auto flex max-w-6xl items-center justify-around px-2 py-3">
-        {navItems.map(({ label, path, icon: Icon }) => {
-          const isActive =
-            path === "/" ? pathname === "/" : pathname.startsWith(path);
+    <nav className="fixed bottom-0 left-0 right-0 z-20 border-t border-border bg-card/95 backdrop-blur md:hidden">
+      <div className="mx-auto flex max-w-5xl items-center justify-around px-2 pb-[env(safe-area-inset-bottom)] pt-2">
+        {navItems.map(({ label, path, icon: Icon, isCenter }) => {
+          const isActive = !isCenter && (path === "/" ? pathname === "/" : pathname.startsWith(path));
+
+          if (isCenter) {
+            return (
+              <Link
+                key="add"
+                href={path}
+                className="flex flex-col items-center gap-0.5"
+              >
+                <div className="flex h-12 w-12 -mt-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg active:scale-[0.97] transition-transform">
+                  <Icon className="h-6 w-6" />
+                </div>
+                <span className="text-[10px] font-medium text-muted-foreground">{label}</span>
+              </Link>
+            );
+          }
+
           return (
             <Link
               key={path}
               href={path}
-              className={`flex flex-col items-center gap-1 rounded-xl px-3 py-1 text-xs font-medium transition-colors ${
+              className={cn(
+                "flex flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 text-[10px] font-medium transition-colors",
                 isActive
-                  ? "text-indigo-600 dark:text-indigo-300"
-                  : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
-              }`}
+                  ? "text-primary"
+                  : "text-muted-foreground"
+              )}
             >
               <Icon className="h-5 w-5" />
               <span>{label}</span>
