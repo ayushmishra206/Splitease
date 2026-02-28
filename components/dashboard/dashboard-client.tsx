@@ -32,7 +32,7 @@ export function DashboardClient({ data, currentUserId }: DashboardClientProps) {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {/* You Owe */}
         <Card className="border-orange-200 bg-orange-50 dark:border-orange-900/50 dark:bg-orange-950/30">
-          <CardContent className="pt-6">
+          <CardContent>
             <div className="flex items-center gap-3">
               <div className="rounded-xl bg-orange-100 p-2.5 dark:bg-orange-900/50">
                 <ArrowUpRight className="h-5 w-5 text-orange-600 dark:text-orange-400" />
@@ -49,7 +49,7 @@ export function DashboardClient({ data, currentUserId }: DashboardClientProps) {
 
         {/* Owed to You */}
         <Card className="border-emerald-200 bg-emerald-50 dark:border-emerald-900/50 dark:bg-emerald-950/30">
-          <CardContent className="pt-6">
+          <CardContent>
             <div className="flex items-center gap-3">
               <div className="rounded-xl bg-emerald-100 p-2.5 dark:bg-emerald-900/50">
                 <ArrowDownLeft className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
@@ -72,7 +72,7 @@ export function DashboardClient({ data, currentUserId }: DashboardClientProps) {
               : "border-orange-200 bg-orange-50 dark:border-orange-900/50 dark:bg-orange-950/30"
           }
         >
-          <CardContent className="pt-6">
+          <CardContent>
             <div className="flex items-center gap-3">
               <div
                 className={`rounded-xl p-2.5 ${
@@ -141,7 +141,7 @@ export function DashboardClient({ data, currentUserId }: DashboardClientProps) {
               return (
                 <Link key={group.id} href={`/groups/${group.id}`}>
                   <Card className="hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer">
-                    <CardContent className="pt-6">
+                    <CardContent>
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 mb-2">
@@ -196,7 +196,7 @@ export function DashboardClient({ data, currentUserId }: DashboardClientProps) {
         </div>
 
         <Card>
-          <CardContent className="pt-6">
+          <CardContent>
             {data.recentExpenses.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">
                 No expenses yet
