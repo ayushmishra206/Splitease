@@ -84,7 +84,7 @@ type GroupWithMembers = {
 type ExpenseWithDetails = {
   id: string;
   groupId: string;
-  payerId: string;
+  payerId: string | null;
   description: string;
   amount: unknown; // Prisma Decimal
   expenseDate: Date;
@@ -100,7 +100,7 @@ type ExpenseWithDetails = {
     id: string;
     fullName: string | null;
     avatarUrl: string | null;
-  };
+  } | null;
   splits: Array<{
     id: string;
     expenseId: string;
@@ -226,7 +226,7 @@ export function ExpenseList({ expenses, groups, currentUserId }: ExpenseListProp
       groupId: expense.groupId,
       description: expense.description,
       amount,
-      payerId: expense.payerId,
+      payerId: expense.payerId ?? "",
       expenseDate: format(new Date(expense.expenseDate), "yyyy-MM-dd"),
       notes: expense.notes ?? undefined,
       splitMethod: isEqual ? ("equal" as const) : ("custom" as const),
@@ -338,9 +338,9 @@ export function ExpenseList({ expenses, groups, currentUserId }: ExpenseListProp
                       <User className="size-3.5" />
                       Paid by{" "}
                       <span className="font-medium text-foreground">
-                        {expense.payer.id === currentUserId
+                        {expense.payer?.id === currentUserId
                           ? "You"
-                          : expense.payer.fullName ?? "Unknown"}
+                          : expense.payer?.fullName ?? "Unknown"}
                       </span>
                     </span>
                   </div>

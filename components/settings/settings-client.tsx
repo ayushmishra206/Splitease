@@ -92,8 +92,6 @@ export function SettingsClient({ profile }: SettingsClientProps) {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-semibold">Settings</h1>
-
       {/* ── Account Section ── */}
       <section className="space-y-4">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -136,15 +134,6 @@ export function SettingsClient({ profile }: SettingsClientProps) {
                   {format(new Date(profile.createdAt), "MMMM d, yyyy")}
                 </p>
               </div>
-              <div className="space-y-1">
-                <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-                  <Shield className="size-3.5" />
-                  User ID
-                </p>
-                <p className="font-mono text-xs text-muted-foreground">
-                  {profile.id}
-                </p>
-              </div>
             </div>
           </CardContent>
         </Card>
@@ -175,7 +164,7 @@ export function SettingsClient({ profile }: SettingsClientProps) {
                   Switch between light and dark mode
                 </p>
               </div>
-              <ThemeToggle />
+              <ThemeToggle className="gap-2" />
             </div>
           </CardContent>
         </Card>

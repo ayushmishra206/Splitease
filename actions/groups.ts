@@ -140,7 +140,7 @@ export async function removeGroupMember(groupId: string, memberId: string) {
 export async function searchProfiles(term: string) {
   if (term.length < 2) return [];
 
-  return prisma.profile.findMany({
+  return prisma.user.findMany({
     where: {
       fullName: { contains: term, mode: "insensitive" },
     },

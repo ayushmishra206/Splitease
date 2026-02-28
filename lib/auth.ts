@@ -1,14 +1,12 @@
 import { cache } from "react";
-import { createClient } from "@/lib/supabase/server";
+import { auth } from "@/auth";
 
-/**
- * Cached per-request auth call. React's cache() deduplicates
- * within a single server request, so multiple components/actions
- * calling this only make one Supabase getUser() network call.
- */
 export const getAuthenticatedUser = cache(async () => {
-  const supabase = await createClient();
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user) throw new Error("Unauthorized");
-  return user;
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  return {
+    id: session.user.id,
+    email: session.user.email ?? undefined,
+    name: session.user.name ?? undefined,
+  };
 });

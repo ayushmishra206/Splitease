@@ -16,7 +16,7 @@ interface HeaderProps {
   user: {
     id: string;
     email?: string;
-    user_metadata?: { full_name?: string; avatar_url?: string };
+    name?: string;
   };
 }
 
@@ -28,7 +28,7 @@ export function Header({ user }: HeaderProps) {
     ? "Groups"
     : titleMap[pathname] ?? "Dashboard";
 
-  const displayName = user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "User";
+  const displayName = user.name ?? user.email?.split("@")[0] ?? "User";
   const initials = displayName
     .split(" ")
     .map((n) => n[0])

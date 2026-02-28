@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { getAuthenticatedUser } from "@/lib/auth";
-import { syncProfile } from "@/lib/sync-profile";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { MobileNav } from "@/components/layout/mobile-nav";
@@ -17,16 +16,10 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  // Fire-and-forget profile sync — don't block render
-  syncProfile(user);
-
   const serializedUser = {
     id: user.id,
     email: user.email,
-    user_metadata: {
-      full_name: user.user_metadata?.full_name,
-      avatar_url: user.user_metadata?.avatar_url,
-    },
+    name: user.name,
   };
 
   return (

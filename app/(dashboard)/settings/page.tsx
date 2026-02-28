@@ -5,7 +5,7 @@ import { SettingsClient } from "@/components/settings/settings-client";
 export default async function SettingsPage() {
   const user = await getAuthenticatedUser();
 
-  const profile = await prisma.profile.findUnique({
+  const profile = await prisma.user.findUnique({
     where: { id: user.id },
   });
 

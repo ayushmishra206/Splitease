@@ -5,7 +5,7 @@ import { useTheme } from "next-themes";
 import { Sun, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export function ThemeToggle() {
+export function ThemeToggle({ className }: { className?: string }) {
   const [mounted, setMounted] = useState(false);
   const { resolvedTheme, setTheme } = useTheme();
 
@@ -14,7 +14,7 @@ export function ThemeToggle() {
   return (
     <Button
       variant="outline"
-      className="w-full justify-center gap-2"
+      className={className ?? "w-full justify-center gap-2"}
       onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
     >
       {mounted && resolvedTheme === "dark" ? (

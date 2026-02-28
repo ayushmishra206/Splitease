@@ -162,6 +162,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
 
     for (const split of groupSplits) {
       const payerId = split.expense.payerId;
+      if (!payerId) continue;
       const share = parseFloat(String(split.share));
 
       // Track total expenses (deduplicate by expense)
@@ -248,8 +249,8 @@ export async function fetchDashboardData(): Promise<DashboardData> {
       amount: parseFloat(String(e.amount)),
       currency: e.group.currency,
       groupName: e.group.name,
-      payerName: e.payer.fullName ?? "Unknown",
-      payerId: e.payerId,
+      payerName: e.payer?.fullName ?? "Unknown",
+      payerId: e.payerId ?? "",
       expenseDate: e.expenseDate,
     })),
     groupSummaries,

@@ -22,7 +22,7 @@ export type GroupDetailData = {
     amount: number;
     expenseDate: Date;
     notes: string | null;
-    payerId: string;
+    payerId: string | null;
     payerName: string;
     createdAt: Date;
     splits: Array<{
@@ -93,7 +93,7 @@ export async function fetchGroupDetail(groupId: string): Promise<GroupDetailData
       expenseDate: e.expenseDate,
       notes: e.notes,
       payerId: e.payerId,
-      payerName: e.payer.fullName ?? "Unknown",
+      payerName: e.payer?.fullName ?? "Unknown",
       createdAt: e.createdAt,
       splits: e.splits.map((s) => ({
         memberId: s.memberId,

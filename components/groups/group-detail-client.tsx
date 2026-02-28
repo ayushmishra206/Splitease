@@ -49,6 +49,7 @@ export function GroupDetailClient({ data, currentUserId }: GroupDetailClientProp
   // Compute simplified balances
   const net: Record<string, number> = {};
   for (const expense of expenses) {
+    if (!expense.payerId) continue;
     for (const split of expense.splits) {
       if (expense.payerId === currentUserId && split.memberId !== currentUserId) {
         net[split.memberId] = (net[split.memberId] ?? 0) + split.share;
