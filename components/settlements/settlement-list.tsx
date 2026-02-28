@@ -319,7 +319,7 @@ export function SettlementList({
                       className="ml-auto"
                       onClick={() => setDeleteTarget(settlement)}
                     >
-                      <Trash2 className="size-3.5 text-destructive" />
+                      <Trash2 className="size-3.5 text-red-500 dark:text-red-400" />
                     </Button>
                   </div>
                 </CardContent>

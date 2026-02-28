@@ -104,8 +104,8 @@ export function SettingsClient({ profile }: SettingsClientProps) {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <div className="rounded-lg bg-primary/10 p-1">
-                <User className="size-4 text-primary" />
+              <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/30 p-1">
+                <User className="size-4 text-emerald-600 dark:text-emerald-400" />
               </div>
               Profile
             </CardTitle>
@@ -160,8 +160,8 @@ export function SettingsClient({ profile }: SettingsClientProps) {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <div className="rounded-lg bg-primary/10 p-1">
-                <Palette className="size-4 text-primary" />
+              <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/30 p-1">
+                <Palette className="size-4 text-emerald-600 dark:text-emerald-400" />
               </div>
               Appearance
             </CardTitle>
@@ -191,8 +191,8 @@ export function SettingsClient({ profile }: SettingsClientProps) {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <div className="rounded-lg bg-primary/10 p-1">
-                <Database className="size-4 text-primary" />
+              <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/30 p-1">
+                <Database className="size-4 text-emerald-600 dark:text-emerald-400" />
               </div>
               Data Management
             </CardTitle>

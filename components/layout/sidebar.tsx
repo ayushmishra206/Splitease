@@ -56,7 +56,7 @@ export function Sidebar({ user }: SidebarProps) {
       <div className="flex h-full flex-col">
         {/* Logo */}
         <div className={cn("flex items-center gap-3 border-b border-border px-4 py-5", collapsed && "justify-center px-2")}>
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold text-sm">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white dark:bg-emerald-600 font-bold text-sm">
             SE
           </div>
           {!collapsed && (
@@ -80,7 +80,7 @@ export function Sidebar({ user }: SidebarProps) {
                   "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
                   collapsed && "justify-center px-2",
                   isActive
-                    ? "bg-primary/10 text-primary"
+                    ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
@@ -113,7 +113,7 @@ export function Sidebar({ user }: SidebarProps) {
 
           {/* User + sign out */}
           <div className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5", collapsed && "justify-center px-2")}>
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 text-xs font-semibold">
               {initials}
             </div>
             {!collapsed && (
@@ -129,7 +129,7 @@ export function Sidebar({ user }: SidebarProps) {
               type="submit"
               title={collapsed ? "Sign out" : undefined}
               className={cn(
-                "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10",
+                "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-red-500 dark:text-red-400 transition-colors hover:bg-red-50 dark:hover:bg-red-900/20",
                 collapsed && "justify-center px-2"
               )}
             >

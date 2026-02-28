@@ -135,13 +135,13 @@ export function GroupDetailClient({ data, currentUserId }: GroupDetailClientProp
             className={cn(
               "relative px-4 py-2.5 text-sm font-medium transition-colors",
               activeTab === tab.id
-                ? "text-primary"
+                ? "text-emerald-600 dark:text-emerald-400"
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
             {tab.label}
             {activeTab === tab.id && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-600 dark:bg-emerald-400 rounded-full" />
             )}
           </button>
         ))}
@@ -192,7 +192,7 @@ export function GroupDetailClient({ data, currentUserId }: GroupDetailClientProp
                               {myShare > 0 && (
                                 <p className={cn(
                                   "text-xs font-medium",
-                                  iPaid ? "text-success" : "text-destructive"
+                                  iPaid ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
                                 )}>
                                   {iPaid ? `You get back ${formatCurrency(expense.amount - myShare, group.currency)}` : `You owe ${formatCurrency(myShare, group.currency)}`}
                                 </p>
@@ -231,7 +231,7 @@ export function GroupDetailClient({ data, currentUserId }: GroupDetailClientProp
                       <p className="text-sm font-medium">{b.memberName}</p>
                       <p className={cn(
                         "text-xs",
-                        b.amount > 0 ? "text-success" : "text-destructive"
+                        b.amount > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
                       )}>
                         {b.amount > 0 ? "owes you" : "you owe"}
                       </p>
@@ -262,7 +262,7 @@ export function GroupDetailClient({ data, currentUserId }: GroupDetailClientProp
               <div key={i} className="flex items-start gap-3 py-2">
                 <div className={cn(
                   "mt-1 h-2 w-2 rounded-full shrink-0",
-                  activity.type === "expense" ? "bg-primary" : "bg-success"
+                  activity.type === "expense" ? "bg-emerald-500" : "bg-green-500"
                 )} />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm">{activity.text}</p>

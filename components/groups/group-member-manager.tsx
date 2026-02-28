@@ -131,7 +131,7 @@ export function GroupMemberManager({
               className="flex items-center justify-between rounded-lg border p-3"
             >
               <div className="flex items-center gap-3">
-                <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-sm font-medium text-emerald-600 dark:text-emerald-400">
                   {getInitial(m.member.fullName)}
                 </div>
                 <div className="flex items-center gap-2">
@@ -155,7 +155,7 @@ export function GroupMemberManager({
                   {removingId === m.memberId ? (
                     <Loader2 className="size-4 animate-spin" />
                   ) : (
-                    <UserMinus className="size-4 text-destructive" />
+                    <UserMinus className="size-4 text-red-500 dark:text-red-400" />
                   )}
                 </Button>
               )}

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 import {
   ArrowUpRight,
   ArrowDownLeft,
@@ -9,10 +9,8 @@ import {
   ChevronRight,
   Users,
 } from "lucide-react";
-import { format } from "date-fns";
 import { formatCurrency } from "@/lib/utils";
 import type { DashboardData } from "@/actions/dashboard";
-import { AmountDisplay } from "@/components/ui/amount-display";
 import { AvatarStack } from "@/components/ui/avatar-stack";
 import { CategoryBadge } from "@/components/ui/category-badge";
 import {
@@ -33,15 +31,15 @@ export function DashboardClient({ data, currentUserId }: DashboardClientProps) {
       {/* Balance summary — 3 cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {/* You Owe */}
-        <Card className="border-accent/20 bg-accent/5">
+        <Card className="border-orange-200 bg-orange-50 dark:border-orange-900/50 dark:bg-orange-950/30">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="rounded-xl bg-accent/10 p-2.5">
-                <ArrowUpRight className="h-5 w-5 text-accent" />
+              <div className="rounded-xl bg-orange-100 p-2.5 dark:bg-orange-900/50">
+                <ArrowUpRight className="h-5 w-5 text-orange-600 dark:text-orange-400" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">You owe</p>
-                <p className="text-2xl font-bold font-mono tabular-nums text-accent">
+                <p className="text-2xl font-bold font-mono tabular-nums text-orange-600 dark:text-orange-400">
                   {formatCurrency(data.youOwe)}
                 </p>
               </div>
@@ -50,15 +48,15 @@ export function DashboardClient({ data, currentUserId }: DashboardClientProps) {
         </Card>
 
         {/* Owed to You */}
-        <Card className="border-success/20 bg-success/5">
+        <Card className="border-emerald-200 bg-emerald-50 dark:border-emerald-900/50 dark:bg-emerald-950/30">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="rounded-xl bg-success/10 p-2.5">
-                <ArrowDownLeft className="h-5 w-5 text-success" />
+              <div className="rounded-xl bg-emerald-100 p-2.5 dark:bg-emerald-900/50">
+                <ArrowDownLeft className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Owed to you</p>
-                <p className="text-2xl font-bold font-mono tabular-nums text-success">
+                <p className="text-2xl font-bold font-mono tabular-nums text-emerald-600 dark:text-emerald-400">
                   {formatCurrency(data.youAreOwed)}
                 </p>
               </div>
@@ -70,30 +68,41 @@ export function DashboardClient({ data, currentUserId }: DashboardClientProps) {
         <Card
           className={
             netBalance >= 0
-              ? "border-primary/20 bg-primary/5"
-              : "border-accent/20 bg-accent/5"
+              ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900/50 dark:bg-emerald-950/30"
+              : "border-orange-200 bg-orange-50 dark:border-orange-900/50 dark:bg-orange-950/30"
           }
         >
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
               <div
                 className={`rounded-xl p-2.5 ${
-                  netBalance >= 0 ? "bg-primary/10" : "bg-accent/10"
+                  netBalance >= 0
+                    ? "bg-emerald-100 dark:bg-emerald-900/50"
+                    : "bg-orange-100 dark:bg-orange-900/50"
                 }`}
               >
                 <Scale
                   className={`h-5 w-5 ${
-                    netBalance >= 0 ? "text-primary" : "text-accent"
+                    netBalance >= 0
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-orange-600 dark:text-orange-400"
                   }`}
                 />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Net balance</p>
-                <AmountDisplay
-                  amount={netBalance}
-                  showSign
-                  className="text-2xl font-bold"
-                />
+                <p
+                  className={`text-2xl font-bold font-mono tabular-nums ${
+                    netBalance > 0
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : netBalance < 0
+                        ? "text-orange-600 dark:text-orange-400"
+                        : "text-muted-foreground"
+                  }`}
+                >
+                  {netBalance > 0 && "+"}
+                  {formatCurrency(Math.abs(netBalance))}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -104,7 +113,7 @@ export function DashboardClient({ data, currentUserId }: DashboardClientProps) {
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Your Groups</h2>
-          <Link href="/groups" className="text-sm font-medium text-primary hover:underline">
+          <Link href="/groups" className="text-sm font-medium text-emerald-600 hover:underline dark:text-emerald-400">
             View all
           </Link>
         </div>
@@ -119,7 +128,7 @@ export function DashboardClient({ data, currentUserId }: DashboardClientProps) {
               </p>
               <Link
                 href="/groups"
-                className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors active:scale-[0.97]"
+                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 transition-colors active:scale-[0.97] dark:bg-emerald-500 dark:hover:bg-emerald-600"
               >
                 Create a group
               </Link>
@@ -148,12 +157,16 @@ export function DashboardClient({ data, currentUserId }: DashboardClientProps) {
                             {Math.abs(groupNet) < 0.01 ? (
                               <span className="text-sm text-muted-foreground">All settled up</span>
                             ) : (
-                              <AmountDisplay
-                                amount={groupNet}
-                                currency={group.currency}
-                                showSign
-                                className="text-sm font-semibold"
-                              />
+                              <span
+                                className={`text-sm font-semibold font-mono tabular-nums ${
+                                  groupNet > 0
+                                    ? "text-emerald-600 dark:text-emerald-400"
+                                    : "text-orange-600 dark:text-orange-400"
+                                }`}
+                              >
+                                {groupNet > 0 ? "+" : "-"}
+                                {formatCurrency(Math.abs(groupNet), group.currency)}
+                              </span>
                             )}
                             {group.lastActivity && (
                               <span className="text-xs text-muted-foreground">
@@ -177,7 +190,7 @@ export function DashboardClient({ data, currentUserId }: DashboardClientProps) {
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Recent Expenses</h2>
-          <Link href="/expenses" className="text-sm font-medium text-primary hover:underline">
+          <Link href="/expenses" className="text-sm font-medium text-emerald-600 hover:underline dark:text-emerald-400">
             View all
           </Link>
         </div>
@@ -208,11 +221,9 @@ export function DashboardClient({ data, currentUserId }: DashboardClientProps) {
                         {format(new Date(expense.expenseDate), "MMM d")}
                       </p>
                     </div>
-                    <AmountDisplay
-                      amount={expense.amount}
-                      currency={expense.currency}
-                      className="text-sm font-semibold"
-                    />
+                    <span className="text-sm font-semibold font-mono tabular-nums">
+                      {formatCurrency(expense.amount, expense.currency)}
+                    </span>
                   </div>
                 ))}
               </div>

@@ -209,7 +209,7 @@ export function GroupList({ groups, currentUserId }: GroupListProps) {
                     </div>
 
                     {isOwner && (
-                      <div className="flex items-center gap-1.5 text-xs text-primary">
+                      <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
                         <Crown className="size-3" />
                         You own this group
                       </div>
@@ -243,7 +243,7 @@ export function GroupList({ groups, currentUserId }: GroupListProps) {
                           className="ml-auto"
                           onClick={() => setDeleteTarget(group)}
                         >
-                          <Trash2 className="size-3.5 text-destructive" />
+                          <Trash2 className="size-3.5 text-red-500 dark:text-red-400" />
                         </Button>
                       </>
                     )}

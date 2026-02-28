@@ -17,7 +17,7 @@ export default function DashboardError({
 
   return (
     <div className="flex min-h-[50vh] flex-col items-center justify-center text-center">
-      <AlertTriangle className="size-12 text-destructive" />
+      <AlertTriangle className="size-12 text-red-500 dark:text-red-400" />
       <h2 className="mt-4 text-xl font-semibold">Something went wrong</h2>
       <p className="mt-2 max-w-md text-sm text-muted-foreground">
         {error.message || "An unexpected error occurred. Please try again."}

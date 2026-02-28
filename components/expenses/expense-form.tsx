@@ -367,8 +367,8 @@ export function ExpenseForm({
                   key={m.memberId}
                   className={`flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors ${
                     checked
-                      ? "border-primary/50 bg-primary/5"
-                      : "border-border hover:bg-accent"
+                      ? "border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-900/20"
+                      : "border-border hover:bg-muted"
                   }`}
                 >
                   <Checkbox

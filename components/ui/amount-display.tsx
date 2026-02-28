@@ -21,8 +21,8 @@ export function AmountDisplay({
     <span
       className={cn(
         "font-mono tabular-nums",
-        isPositive && "text-success",
-        isNegative && "text-destructive",
+        isPositive && "text-emerald-600 dark:text-emerald-400",
+        isNegative && "text-red-600 dark:text-red-400",
         !isPositive && !isNegative && "text-muted-foreground",
         className
       )}

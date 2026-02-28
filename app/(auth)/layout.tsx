@@ -20,7 +20,7 @@ export default function AuthLayout({
       <div className="flex flex-1 flex-col bg-background">
         {/* Mobile brand header */}
         <div className="flex items-center gap-3 px-6 py-5 lg:hidden">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold text-sm">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500 text-white dark:bg-emerald-600 font-bold text-sm">
             SE
           </div>
           <div>

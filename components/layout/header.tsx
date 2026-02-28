@@ -53,7 +53,7 @@ export function Header({ user }: HeaderProps) {
 
         {/* Mobile: User avatar */}
         <div className="flex items-center gap-2 md:hidden">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-semibold">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 text-xs font-semibold">
             {initials}
           </div>
         </div>

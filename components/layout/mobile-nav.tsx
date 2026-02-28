@@ -29,7 +29,7 @@ export function MobileNav() {
                 href={path}
                 className="flex flex-col items-center gap-0.5"
               >
-                <div className="flex h-12 w-12 -mt-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg active:scale-[0.97] transition-transform">
+                <div className="flex h-12 w-12 -mt-5 items-center justify-center rounded-full bg-emerald-500 text-white dark:bg-emerald-600 shadow-lg active:scale-[0.97] transition-transform">
                   <Icon className="h-6 w-6" />
                 </div>
                 <span className="text-[10px] font-medium text-muted-foreground">{label}</span>
@@ -44,7 +44,7 @@ export function MobileNav() {
               className={cn(
                 "flex flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 text-[10px] font-medium transition-colors",
                 isActive
-                  ? "text-primary"
+                  ? "text-emerald-600 dark:text-emerald-400"
                   : "text-muted-foreground"
               )}
             >
