@@ -41,11 +41,11 @@ export default async function DashboardLayout({
   };
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-slate-100 via-white to-slate-200 text-slate-900 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 dark:text-slate-50">
+    <div className="flex min-h-screen bg-background text-foreground">
       <Sidebar user={serializedUser} />
       <main className="relative flex min-h-screen flex-1 flex-col">
         <Header user={serializedUser} />
-        <div className="mx-auto w-full max-w-6xl flex-1 px-4 pb-28 pt-8 sm:px-6 sm:pb-12 sm:pt-10 lg:pb-12">
+        <div className="mx-auto w-full max-w-5xl flex-1 px-4 pb-24 pt-6 sm:px-6 sm:pb-8 sm:pt-8">
           {children}
         </div>
         <MobileNav />
