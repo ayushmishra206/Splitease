@@ -52,6 +52,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import { CategoryBadge } from "@/components/ui/category-badge";
 import { ExpenseForm } from "./expense-form";
 
 type GroupWithMembers = {
@@ -270,7 +271,7 @@ export function ExpenseList({ expenses, groups, currentUserId }: ExpenseListProp
 
       {/* Empty states */}
       {groups.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-16 text-center dark:border-slate-700/70 dark:bg-slate-900/60">
+        <div className="rounded-xl border border-dashed border-border bg-card p-16 text-center">
           <Users className="mx-auto size-12 text-muted-foreground/50" />
           <h2 className="mt-4 text-lg font-semibold">No groups yet</h2>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -281,7 +282,7 @@ export function ExpenseList({ expenses, groups, currentUserId }: ExpenseListProp
           </Button>
         </div>
       ) : filteredExpenses.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-16 text-center dark:border-slate-700/70 dark:bg-slate-900/60">
+        <div className="rounded-xl border border-dashed border-border bg-card p-16 text-center">
           <Receipt className="mx-auto size-12 text-muted-foreground/50" />
           <h2 className="mt-4 text-lg font-semibold">No expenses yet</h2>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -308,12 +309,15 @@ export function ExpenseList({ expenses, groups, currentUserId }: ExpenseListProp
                           {expense.group.name}
                         </Badge>
                       </div>
-                      <CardTitle className="truncate text-base">
-                        {expense.description}
-                      </CardTitle>
+                      <div className="flex items-center gap-2">
+                        <CategoryBadge />
+                        <CardTitle className="truncate text-base">
+                          {expense.description}
+                        </CardTitle>
+                      </div>
                     </div>
                     <span
-                      className={`shrink-0 text-lg font-semibold ${
+                      className={`shrink-0 text-lg font-semibold font-mono ${
                         isPayer
                           ? "text-emerald-600 dark:text-emerald-400"
                           : "text-foreground"

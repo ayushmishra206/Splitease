@@ -305,6 +305,7 @@ export function ExpenseForm({
             step="0.01"
             min="0.01"
             placeholder="0.00"
+            className="font-mono"
             {...register("amount")}
             aria-invalid={!!errors.amount}
           />
