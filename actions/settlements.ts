@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getAuthenticatedUser } from "@/lib/auth";
+import { sendEmail } from "@/lib/email/send";
+import { settlementRecordedEmail } from "@/lib/email/templates";
 
 export async function fetchSettlements(groupId?: string) {
   const user = await getAuthenticatedUser();
@@ -56,6 +58,34 @@ export async function createSettlement(input: {
       to: { select: { id: true, fullName: true, avatarUrl: true } },
     },
   });
+
+  // Notify both parties
+  const amountStr = parseFloat(String(settlement.amount)).toFixed(2);
+  const fromName = settlement.from.fullName ?? "Someone";
+  const toName = settlement.to.fullName ?? "Someone";
+  const groupName = settlement.group.name;
+  const currency = settlement.group.currency;
+
+  // Fetch emails for both parties
+  const [fromUser, toUser] = await Promise.all([
+    prisma.user.findUnique({ where: { id: input.fromMember }, select: { email: true } }),
+    prisma.user.findUnique({ where: { id: input.toMember }, select: { email: true } }),
+  ]);
+
+  if (fromUser?.email) {
+    void sendEmail(
+      fromUser.email,
+      `Settlement in ${groupName}`,
+      settlementRecordedEmail(fromName, amountStr, currency, groupName, fromName, toName)
+    );
+  }
+  if (toUser?.email) {
+    void sendEmail(
+      toUser.email,
+      `Settlement in ${groupName}`,
+      settlementRecordedEmail(toName, amountStr, currency, groupName, fromName, toName)
+    );
+  }
 
   revalidatePath("/settlements");
   revalidatePath("/");

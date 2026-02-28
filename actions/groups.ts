@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getAuthenticatedUser } from "@/lib/auth";
+import { sendEmail } from "@/lib/email/send";
+import { addedToGroupEmail } from "@/lib/email/templates";
 
 export async function fetchGroups() {
   const user = await getAuthenticatedUser();
@@ -55,6 +57,25 @@ export async function createGroup(input: {
       },
     },
   });
+
+  // Notify added members (not the creator)
+  const addedMembers = group.members.filter((m) => m.member.id !== user.id);
+  if (addedMembers.length > 0) {
+    const creatorName = group.owner.fullName ?? "Someone";
+    for (const gm of addedMembers) {
+      const memberEmail = await prisma.user.findUnique({
+        where: { id: gm.member.id },
+        select: { email: true },
+      });
+      if (memberEmail?.email) {
+        void sendEmail(
+          memberEmail.email,
+          `You've been added to ${group.name}`,
+          addedToGroupEmail(gm.member.fullName ?? "there", group.name, creatorName)
+        );
+      }
+    }
+  }
 
   revalidatePath("/groups");
   revalidatePath("/");
@@ -114,9 +135,23 @@ export async function addGroupMember(groupId: string, memberId: string) {
   const member = await prisma.groupMember.create({
     data: { groupId, memberId, role: "member" },
     include: {
-      member: { select: { id: true, fullName: true, avatarUrl: true } },
+      member: { select: { id: true, fullName: true, avatarUrl: true, email: true } },
     },
   });
+
+  // Notify the added member
+  if (member.member.email) {
+    const adderName = (await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { fullName: true },
+    }))?.fullName ?? "Someone";
+
+    void sendEmail(
+      member.member.email,
+      `You've been added to ${group.name}`,
+      addedToGroupEmail(member.member.fullName ?? "there", group.name, adderName)
+    );
+  }
 
   revalidatePath("/groups");
   return member;

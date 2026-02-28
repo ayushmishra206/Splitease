@@ -1,11 +1,12 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { signIn as nextAuthSignIn, signOut as nextAuthSignOut } from "@/auth";
 import { AuthError } from "next-auth";
+import { getAuthenticatedUser } from "@/lib/auth";
+import { sendEmail } from "@/lib/email/send";
+import { welcomeEmail } from "@/lib/email/templates";
 
 export async function signIn(formData: FormData) {
   const email = formData.get("email") as string;
@@ -53,6 +54,8 @@ export async function signUp(formData: FormData) {
     },
   });
 
+  void sendEmail(email, "Welcome to SplitEase!", welcomeEmail(fullName));
+
   try {
     await nextAuthSignIn("credentials", {
       email,
@@ -69,4 +72,46 @@ export async function signUp(formData: FormData) {
 
 export async function signOut() {
   await nextAuthSignOut({ redirectTo: "/login" });
+}
+
+export async function changePassword(formData: FormData) {
+  const user = await getAuthenticatedUser();
+
+  const currentPassword = formData.get("currentPassword") as string;
+  const newPassword = formData.get("newPassword") as string;
+  const confirmPassword = formData.get("confirmPassword") as string;
+
+  if (!currentPassword || !newPassword) {
+    return { error: "All fields are required" };
+  }
+
+  if (newPassword.length < 6) {
+    return { error: "New password must be at least 6 characters" };
+  }
+
+  if (newPassword !== confirmPassword) {
+    return { error: "Passwords do not match" };
+  }
+
+  const dbUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { password: true },
+  });
+
+  if (!dbUser) {
+    return { error: "User not found" };
+  }
+
+  const valid = await bcrypt.compare(currentPassword, dbUser.password);
+  if (!valid) {
+    return { error: "Current password is incorrect" };
+  }
+
+  const hashedPassword = await bcrypt.hash(newPassword, 12);
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { password: hashedPassword },
+  });
+
+  return { success: "Password changed successfully" };
 }

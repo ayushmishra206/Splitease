@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getAuthenticatedUser } from "@/lib/auth";
+import { sendEmail } from "@/lib/email/send";
+import { expenseAddedEmail } from "@/lib/email/templates";
 
 export async function fetchExpenses(groupId?: string) {
   const user = await getAuthenticatedUser();
@@ -81,6 +83,28 @@ export async function createExpense(input: {
       },
     },
   });
+
+  // Notify group members (excluding the payer)
+  const payerName = expense.payer?.fullName ?? "Someone";
+  const groupMembers = await prisma.groupMember.findMany({
+    where: { groupId: input.groupId },
+    include: { member: { select: { id: true, email: true, fullName: true } } },
+  });
+  for (const gm of groupMembers) {
+    if (gm.member.id === input.payerId) continue;
+    void sendEmail(
+      gm.member.email,
+      `New expense in ${expense.group.name}`,
+      expenseAddedEmail(
+        gm.member.fullName ?? "there",
+        expense.description,
+        parseFloat(String(expense.amount)).toFixed(2),
+        expense.group.currency,
+        expense.group.name,
+        payerName
+      )
+    );
+  }
 
   revalidatePath("/expenses");
   revalidatePath("/");

@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { exportUserData, importUserData } from "@/actions/backup";
+import { changePassword } from "@/actions/auth";
 import { toast } from "sonner";
 import {
   Download,
@@ -23,8 +24,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { Lock } from "lucide-react";
 
 interface SettingsClientProps {
   profile: {
@@ -39,7 +43,23 @@ interface SettingsClientProps {
 export function SettingsClient({ profile }: SettingsClientProps) {
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const passwordFormRef = useRef<HTMLFormElement>(null);
+
+  const handleChangePassword = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setChangingPassword(true);
+    const formData = new FormData(e.currentTarget);
+    const result = await changePassword(formData);
+    if (result.error) {
+      toast.error(result.error);
+    } else if (result.success) {
+      toast.success(result.success);
+      passwordFormRef.current?.reset();
+    }
+    setChangingPassword(false);
+  };
 
   const handleExport = async () => {
     setExporting(true);
@@ -135,6 +155,71 @@ export function SettingsClient({ profile }: SettingsClientProps) {
                 </p>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* ── Security Section ── */}
+      <section className="space-y-4">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Security
+        </h2>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/30 p-1">
+                <Lock className="size-4 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              Change Password
+            </CardTitle>
+            <CardDescription>
+              Update your account password
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form
+              ref={passwordFormRef}
+              onSubmit={handleChangePassword}
+              className="space-y-4 max-w-sm"
+            >
+              <div className="space-y-2">
+                <Label htmlFor="currentPassword">Current password</Label>
+                <Input
+                  id="currentPassword"
+                  name="currentPassword"
+                  type="password"
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="newPassword">New password</Label>
+                <Input
+                  id="newPassword"
+                  name="newPassword"
+                  type="password"
+                  placeholder="••••••••"
+                  minLength={6}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm new password</Label>
+                <Input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  placeholder="••••••••"
+                  minLength={6}
+                  required
+                />
+              </div>
+              <Button type="submit" disabled={changingPassword}>
+                <Shield className="size-4" />
+                {changingPassword ? "Changing..." : "Change Password"}
+              </Button>
+            </form>
           </CardContent>
         </Card>
       </section>
