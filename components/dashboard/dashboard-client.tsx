@@ -1,27 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { format } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import {
-  ArrowDown,
-  ArrowUp,
-  Calendar,
-  HandCoins,
-  Receipt,
-  TrendingUp,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Scale,
+  ChevronRight,
   Users,
-  User,
 } from "lucide-react";
+import { format } from "date-fns";
 import { formatCurrency } from "@/lib/utils";
 import type { DashboardData } from "@/actions/dashboard";
-
-import { Badge } from "@/components/ui/badge";
+import { AmountDisplay } from "@/components/ui/amount-display";
+import { AvatarStack } from "@/components/ui/avatar-stack";
+import { CategoryBadge } from "@/components/ui/category-badge";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 
 interface DashboardClientProps {
@@ -30,49 +26,22 @@ interface DashboardClientProps {
 }
 
 export function DashboardClient({ data, currentUserId }: DashboardClientProps) {
+  const netBalance = data.youAreOwed - data.youOwe;
+
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Dashboard</h1>
-
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Card>
+    <div className="space-y-8">
+      {/* Balance summary — 3 cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {/* You Owe */}
+        <Card className="border-accent/20 bg-accent/5">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-indigo-100 p-2 dark:bg-indigo-900/50">
-                <Users className="size-5 text-indigo-600 dark:text-indigo-400" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Groups</p>
-                <p className="text-2xl font-semibold">{data.totalGroups}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-blue-100 p-2 dark:bg-blue-900/50">
-                <Receipt className="size-5 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Expenses</p>
-                <p className="text-2xl font-semibold">{data.totalExpenses}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-red-100 p-2 dark:bg-red-900/50">
-                <ArrowUp className="size-5 text-red-600 dark:text-red-400" />
+              <div className="rounded-xl bg-accent/10 p-2.5">
+                <ArrowUpRight className="h-5 w-5 text-accent" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">You owe</p>
-                <p className="text-2xl font-semibold text-red-600 dark:text-red-400">
+                <p className="text-2xl font-bold font-mono tabular-nums text-accent">
                   {formatCurrency(data.youOwe)}
                 </p>
               </div>
@@ -80,149 +49,170 @@ export function DashboardClient({ data, currentUserId }: DashboardClientProps) {
           </CardContent>
         </Card>
 
-        <Card>
+        {/* Owed to You */}
+        <Card className="border-success/20 bg-success/5">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-emerald-100 p-2 dark:bg-emerald-900/50">
-                <ArrowDown className="size-5 text-emerald-600 dark:text-emerald-400" />
+              <div className="rounded-xl bg-success/10 p-2.5">
+                <ArrowDownLeft className="h-5 w-5 text-success" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">You are owed</p>
-                <p className="text-2xl font-semibold text-emerald-600 dark:text-emerald-400">
+                <p className="text-sm text-muted-foreground">Owed to you</p>
+                <p className="text-2xl font-bold font-mono tabular-nums text-success">
                   {formatCurrency(data.youAreOwed)}
                 </p>
               </div>
             </div>
           </CardContent>
         </Card>
+
+        {/* Net Balance */}
+        <Card
+          className={
+            netBalance >= 0
+              ? "border-primary/20 bg-primary/5"
+              : "border-accent/20 bg-accent/5"
+          }
+        >
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div
+                className={`rounded-xl p-2.5 ${
+                  netBalance >= 0 ? "bg-primary/10" : "bg-accent/10"
+                }`}
+              >
+                <Scale
+                  className={`h-5 w-5 ${
+                    netBalance >= 0 ? "text-primary" : "text-accent"
+                  }`}
+                />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Net balance</p>
+                <AmountDisplay
+                  amount={netBalance}
+                  showSign
+                  className="text-2xl font-bold"
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Recent expenses */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-base">Recent Expenses</CardTitle>
-                <CardDescription>Last 5 expenses across all groups</CardDescription>
-              </div>
+      {/* Groups grid */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Your Groups</h2>
+          <Link href="/groups" className="text-sm font-medium text-primary hover:underline">
+            View all
+          </Link>
+        </div>
+
+        {data.groupSummaries.length === 0 ? (
+          <Card className="py-12">
+            <CardContent className="flex flex-col items-center text-center">
+              <Users className="h-12 w-12 text-muted-foreground/50 mb-4" />
+              <p className="text-lg font-medium mb-1">No groups yet</p>
+              <p className="text-sm text-muted-foreground mb-4">
+                Create your first group to start splitting expenses
+              </p>
               <Link
-                href="/expenses"
-                className="text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+                href="/groups"
+                className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors active:scale-[0.97]"
               >
-                View all
+                Create a group
               </Link>
-            </div>
-          </CardHeader>
-          <CardContent>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {data.groupSummaries.map((group) => {
+              const groupNet = group.balances.reduce((sum, b) => sum + b.amount, 0);
+              return (
+                <Link key={group.id} href={`/groups/${group.id}`}>
+                  <Card className="hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer">
+                    <CardContent className="pt-6">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h3 className="font-semibold truncate">{group.name}</h3>
+                          </div>
+                          <div className="flex items-center gap-2 mb-3">
+                            <AvatarStack names={group.memberNames} max={3} size="sm" />
+                            <span className="text-xs text-muted-foreground">
+                              {group.memberNames.length} member{group.memberNames.length !== 1 ? "s" : ""}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            {Math.abs(groupNet) < 0.01 ? (
+                              <span className="text-sm text-muted-foreground">All settled up</span>
+                            ) : (
+                              <AmountDisplay
+                                amount={groupNet}
+                                currency={group.currency}
+                                showSign
+                                className="text-sm font-semibold"
+                              />
+                            )}
+                            {group.lastActivity && (
+                              <span className="text-xs text-muted-foreground">
+                                {formatDistanceToNow(new Date(group.lastActivity), { addSuffix: true })}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0 mt-1" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Recent expenses */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Recent Expenses</h2>
+          <Link href="/expenses" className="text-sm font-medium text-primary hover:underline">
+            View all
+          </Link>
+        </div>
+
+        <Card>
+          <CardContent className="pt-6">
             {data.recentExpenses.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">
                 No expenses yet
               </p>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {data.recentExpenses.map((expense) => (
                   <div
                     key={expense.id}
-                    className="flex items-center justify-between gap-3"
+                    className="flex items-center gap-3"
                   >
+                    <CategoryBadge />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">
                         {expense.description}
                       </p>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <User className="size-3" />
-                          {expense.payerId === currentUserId
-                            ? "You"
-                            : expense.payerName}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Calendar className="size-3" />
-                          {format(new Date(expense.expenseDate), "MMM d")}
-                        </span>
-                        <Badge variant="outline" className="text-[10px]">
-                          {expense.groupName}
-                        </Badge>
-                      </div>
-                    </div>
-                    <span
-                      className={`shrink-0 text-sm font-semibold ${
-                        expense.payerId === currentUserId
-                          ? "text-emerald-600 dark:text-emerald-400"
-                          : ""
-                      }`}
-                    >
-                      {formatCurrency(expense.amount, expense.currency)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Group balances */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-base">Group Balances</CardTitle>
-                <CardDescription>Your net balance per group</CardDescription>
-              </div>
-              <Link
-                href="/settlements"
-                className="text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400"
-              >
-                Settle up
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {data.groupSummaries.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">
-                No groups yet
-              </p>
-            ) : (
-              <div className="space-y-4">
-                {data.groupSummaries.map((group) => (
-                  <div key={group.id} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-medium">{group.name}</h3>
-                      <span className="text-xs text-muted-foreground">
-                        <TrendingUp className="mr-1 inline size-3" />
-                        {formatCurrency(group.totalExpenses, group.currency)} total
-                      </span>
-                    </div>
-                    {group.balances.length === 0 ? (
-                      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <HandCoins className="size-3" />
-                        All settled up
+                      <p className="text-xs text-muted-foreground">
+                        {expense.payerId === currentUserId ? "You" : expense.payerName} paid
+                        {" · "}
+                        {expense.groupName}
+                        {" · "}
+                        {format(new Date(expense.expenseDate), "MMM d")}
                       </p>
-                    ) : (
-                      <div className="space-y-1">
-                        {group.balances.map((b) => (
-                          <div
-                            key={b.memberId}
-                            className="flex items-center justify-between text-sm"
-                          >
-                            <span className="text-muted-foreground">
-                              {b.memberName}
-                            </span>
-                            <span
-                              className={
-                                b.amount > 0
-                                  ? "font-medium text-emerald-600 dark:text-emerald-400"
-                                  : "font-medium text-red-600 dark:text-red-400"
-                              }
-                            >
-                              {b.amount > 0 ? "owes you " : "you owe "}
-                              {formatCurrency(Math.abs(b.amount), group.currency)}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    </div>
+                    <AmountDisplay
+                      amount={expense.amount}
+                      currency={expense.currency}
+                      className="text-sm font-semibold"
+                    />
                   </div>
                 ))}
               </div>

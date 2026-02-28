@@ -15,6 +15,8 @@ export type GroupSummary = {
   currency: string;
   totalExpenses: number;
   balances: BalanceEntry[];
+  memberNames: string[];
+  lastActivity: Date | null;
 };
 
 export type DashboardData = {
@@ -137,12 +139,29 @@ export async function fetchDashboardData(): Promise<DashboardData> {
       else totalYouOwe += Math.abs(b.amount);
     }
 
+    const lastExpense = groupExpenses[0];
+    const lastSettlement = groupSettlements.sort((a, b) =>
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )[0];
+    const lastActivity = lastExpense?.createdAt
+      ? lastSettlement?.createdAt
+        ? new Date(Math.max(
+            new Date(lastExpense.createdAt).getTime(),
+            new Date(lastSettlement.createdAt).getTime()
+          ))
+        : new Date(lastExpense.createdAt)
+      : lastSettlement?.createdAt
+        ? new Date(lastSettlement.createdAt)
+        : null;
+
     groupSummaries.push({
       id: group.id,
       name: group.name,
       currency: group.currency,
       totalExpenses: Math.round(totalExp * 100) / 100,
       balances,
+      memberNames: Object.values(memberNames),
+      lastActivity,
     });
   }
 
