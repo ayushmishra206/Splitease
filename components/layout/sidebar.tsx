@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -37,6 +37,8 @@ export function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const { resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const displayName = user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "User";
   const initials = displayName
@@ -103,12 +105,12 @@ export function Sidebar({ user }: SidebarProps) {
               collapsed && "justify-center px-2"
             )}
           >
-            {resolvedTheme === "dark" ? (
+            {mounted && resolvedTheme === "dark" ? (
               <Sun className="h-5 w-5 shrink-0" />
             ) : (
               <Moon className="h-5 w-5 shrink-0" />
             )}
-            {!collapsed && <span>{resolvedTheme === "dark" ? "Light mode" : "Dark mode"}</span>}
+            {!collapsed && <span>{mounted && resolvedTheme === "dark" ? "Light mode" : "Dark mode"}</span>}
           </button>
 
           {/* User + sign out */}
