@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 import { getAuthenticatedUser } from "@/lib/auth";
+import { fetchGroups } from "@/actions/groups";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { MobileNav } from "@/components/layout/mobile-nav";
+import { QuickAddExpense } from "@/components/quick-add-expense";
 
 export default async function DashboardLayout({
   children,
@@ -22,6 +24,8 @@ export default async function DashboardLayout({
     name: user.name,
   };
 
+  const groups = await fetchGroups();
+
   return (
     <div className="flex min-h-screen bg-background text-foreground">
       <Sidebar user={serializedUser} />
@@ -31,6 +35,7 @@ export default async function DashboardLayout({
           {children}
         </div>
         <MobileNav />
+        <QuickAddExpense groups={JSON.parse(JSON.stringify(groups))} currentUserId={serializedUser.id} />
       </main>
     </div>
   );
