@@ -16,7 +16,7 @@ export async function fetchSettlements(groupId?: string) {
   });
   const groupIds = memberships.map((m) => m.groupId);
 
-  return prisma.settlement.findMany({
+  const settlements = await prisma.settlement.findMany({
     where: {
       groupId: groupId && groupIds.includes(groupId) ? groupId : { in: groupIds },
     },
@@ -27,6 +27,11 @@ export async function fetchSettlements(groupId?: string) {
     },
     orderBy: { settlementDate: "desc" },
   });
+
+  return settlements.map((s) => ({
+    ...s,
+    amount: parseFloat(String(s.amount)),
+  }));
 }
 
 export async function createSettlement(input: {
