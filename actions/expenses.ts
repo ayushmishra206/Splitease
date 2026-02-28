@@ -13,7 +13,7 @@ export async function fetchExpenses(groupId?: string) {
   });
   const groupIds = memberships.map((m) => m.groupId);
 
-  return prisma.expense.findMany({
+  const expenses = await prisma.expense.findMany({
     where: {
       groupId: groupId && groupIds.includes(groupId) ? groupId : { in: groupIds },
     },
@@ -28,6 +28,16 @@ export async function fetchExpenses(groupId?: string) {
     },
     orderBy: { expenseDate: "desc" },
   });
+
+  // Serialize Decimal fields to plain numbers for client components
+  return expenses.map((e) => ({
+    ...e,
+    amount: parseFloat(String(e.amount)),
+    splits: e.splits.map((s) => ({
+      ...s,
+      share: parseFloat(String(s.share)),
+    })),
+  }));
 }
 
 export async function createExpense(input: {
@@ -74,7 +84,14 @@ export async function createExpense(input: {
 
   revalidatePath("/expenses");
   revalidatePath("/");
-  return expense;
+  return {
+    ...expense,
+    amount: parseFloat(String(expense.amount)),
+    splits: expense.splits.map((s) => ({
+      ...s,
+      share: parseFloat(String(s.share)),
+    })),
+  };
 }
 
 export async function updateExpense(input: {
@@ -127,7 +144,14 @@ export async function updateExpense(input: {
 
   revalidatePath("/expenses");
   revalidatePath("/");
-  return expense;
+  return {
+    ...expense,
+    amount: parseFloat(String(expense.amount)),
+    splits: expense.splits.map((s) => ({
+      ...s,
+      share: parseFloat(String(s.share)),
+    })),
+  };
 }
 
 export async function deleteExpense(id: string) {
