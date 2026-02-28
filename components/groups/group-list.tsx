@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createGroup, updateGroup, deleteGroup } from "@/actions/groups";
 import { toast } from "sonner";
 import {
@@ -157,7 +158,7 @@ export function GroupList({ groups, currentUserId }: GroupListProps) {
 
       {/* Group grid */}
       {groups.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-16 text-center dark:border-slate-700/70 dark:bg-slate-900/60">
+        <div className="rounded-xl border border-dashed border-border bg-card p-16 text-center">
           <UsersRound className="mx-auto size-12 text-muted-foreground/50" />
           <h2 className="mt-4 text-lg font-semibold">No groups yet</h2>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -174,45 +175,49 @@ export function GroupList({ groups, currentUserId }: GroupListProps) {
             const isOwner = group.ownerId === currentUserId;
 
             return (
-              <Card key={group.id} className="gap-4">
-                <CardHeader className="pb-0">
-                  <div className="flex items-start justify-between">
-                    <div className="min-w-0 flex-1">
-                      <CardTitle className="truncate text-base">
-                        {group.name}
-                      </CardTitle>
-                      {group.description && (
-                        <CardDescription className="mt-1 line-clamp-2">
-                          {group.description}
-                        </CardDescription>
-                      )}
+              <Card key={group.id} className="gap-4 hover:shadow-md hover:-translate-y-0.5 transition-all">
+                <Link href={`/groups/${group.id}`}>
+                  <CardHeader className="pb-0">
+                    <div className="flex items-start justify-between">
+                      <div className="min-w-0 flex-1">
+                        <CardTitle className="truncate text-base">
+                          {group.name}
+                        </CardTitle>
+                        {group.description && (
+                          <CardDescription className="mt-1 line-clamp-2">
+                            {group.description}
+                          </CardDescription>
+                        )}
+                      </div>
+                      <Badge variant="outline" className="ml-2 shrink-0">
+                        {group.currency}
+                      </Badge>
                     </div>
-                    <Badge variant="outline" className="ml-2 shrink-0">
-                      {group.currency}
-                    </Badge>
-                  </div>
-                </CardHeader>
+                  </CardHeader>
 
-                <CardContent className="space-y-3">
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1.5">
-                      <Users className="size-3.5" />
-                      {group.members.length}{" "}
-                      {group.members.length === 1 ? "member" : "members"}
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <Calendar className="size-3.5" />
-                      {formatDate(group.createdAt)}
-                    </span>
-                  </div>
-
-                  {isOwner && (
-                    <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
-                      <Crown className="size-3" />
-                      You own this group
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <span className="flex items-center gap-1.5">
+                        <Users className="size-3.5" />
+                        {group.members.length}{" "}
+                        {group.members.length === 1 ? "member" : "members"}
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <Calendar className="size-3.5" />
+                        {formatDate(group.createdAt)}
+                      </span>
                     </div>
-                  )}
 
+                    {isOwner && (
+                      <div className="flex items-center gap-1.5 text-xs text-primary">
+                        <Crown className="size-3" />
+                        You own this group
+                      </div>
+                    )}
+                  </CardContent>
+                </Link>
+
+                <CardContent className="pt-0">
                   <div className="flex items-center gap-2 pt-1">
                     {isOwner && (
                       <>
