@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod/v4";
+import { z } from "zod";
 import { computeEqualSplit, formatCurrency } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,7 @@ import {
 const expenseSchema = z.object({
   groupId: z.string().min(1, "Select a group"),
   description: z.string().min(1, "Description is required").max(120),
-  amount: z.coerce.number().positive("Must be positive"),
+  amount: z.number().positive("Must be positive"),
   payerId: z.string().min(1, "Select who paid"),
   expenseDate: z.string().min(1, "Date is required"),
   notes: z.string().max(240).optional(),
@@ -99,7 +99,8 @@ export function ExpenseForm({
     watch,
     formState: { errors, isSubmitting },
   } = useForm<ExpenseFormValues>({
-    resolver: zodResolver(expenseSchema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(expenseSchema) as any,
     defaultValues: {
       groupId: defaultValues?.groupId ?? "",
       description: defaultValues?.description ?? "",
