@@ -46,6 +46,8 @@ export async function createExpense(input: {
   groupId: string;
   description: string;
   amount: number;
+  category?: string;
+  splitType?: string;
   payerId: string;
   expenseDate: string;
   notes?: string;
@@ -63,6 +65,8 @@ export async function createExpense(input: {
       groupId: input.groupId,
       description: input.description,
       amount: input.amount,
+      category: input.category,
+      splitType: input.splitType ?? "equal",
       payerId: input.payerId,
       expenseDate: new Date(input.expenseDate),
       notes: input.notes,
@@ -123,6 +127,8 @@ export async function updateExpense(input: {
   groupId: string;
   description: string;
   amount: number;
+  category?: string;
+  splitType?: string;
   payerId: string;
   expenseDate: string;
   notes?: string;
@@ -144,6 +150,8 @@ export async function updateExpense(input: {
         groupId: input.groupId,
         description: input.description,
         amount: input.amount,
+        category: input.category,
+        splitType: input.splitType ?? "equal",
         payerId: input.payerId,
         expenseDate: new Date(input.expenseDate),
         notes: input.notes,

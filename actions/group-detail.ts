@@ -20,6 +20,8 @@ export type GroupDetailData = {
     id: string;
     description: string;
     amount: number;
+    category: string | null;
+    splitType: string;
     expenseDate: Date;
     notes: string | null;
     payerId: string | null;
@@ -90,6 +92,8 @@ export async function fetchGroupDetail(groupId: string): Promise<GroupDetailData
       id: e.id,
       description: e.description,
       amount: parseFloat(String(e.amount)),
+      category: e.category,
+      splitType: e.splitType,
       expenseDate: e.expenseDate,
       notes: e.notes,
       payerId: e.payerId,

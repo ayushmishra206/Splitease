@@ -12,14 +12,18 @@ import {
   Pencil,
   Plus,
   Receipt,
+  Search,
   StickyNote,
   Trash2,
   User,
   Users,
+  X,
 } from "lucide-react";
 import { formatCurrency, computeEqualSplit } from "@/lib/utils";
+import { CATEGORIES, type ExpenseCategory } from "@/lib/categories";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -87,6 +91,8 @@ type ExpenseWithDetails = {
   payerId: string | null;
   description: string;
   amount: unknown; // Prisma Decimal
+  category: string | null;
+  splitType: string;
   expenseDate: Date;
   notes: string | null;
   createdAt: Date;
@@ -125,10 +131,23 @@ export function ExpenseList({ expenses, groups, currentUserId }: ExpenseListProp
   const searchParams = useSearchParams();
 
   const [filterGroupId, setFilterGroupId] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterCategory, setFilterCategory] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [editExpense, setEditExpense] = useState<ExpenseWithDetails | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ExpenseWithDetails | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const hasActiveFilters = searchQuery || filterCategory !== "all" || dateFrom || dateTo;
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setFilterCategory("all");
+    setDateFrom("");
+    setDateTo("");
+  };
 
   // Auto-open create dialog when ?create=true
   useEffect(() => {
@@ -138,14 +157,44 @@ export function ExpenseList({ expenses, groups, currentUserId }: ExpenseListProp
   }, [searchParams]);
 
   const filteredExpenses = useMemo(() => {
-    if (filterGroupId === "all") return expenses;
-    return expenses.filter((e) => e.groupId === filterGroupId);
-  }, [expenses, filterGroupId]);
+    let result = expenses;
+
+    if (filterGroupId !== "all") {
+      result = result.filter((e) => e.groupId === filterGroupId);
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (e) =>
+          e.description.toLowerCase().includes(q) ||
+          e.notes?.toLowerCase().includes(q)
+      );
+    }
+
+    if (filterCategory !== "all") {
+      result = result.filter((e) => e.category === filterCategory);
+    }
+
+    if (dateFrom) {
+      const from = new Date(dateFrom);
+      result = result.filter((e) => new Date(e.expenseDate) >= from);
+    }
+    if (dateTo) {
+      const to = new Date(dateTo);
+      to.setHours(23, 59, 59, 999);
+      result = result.filter((e) => new Date(e.expenseDate) <= to);
+    }
+
+    return result;
+  }, [expenses, filterGroupId, searchQuery, filterCategory, dateFrom, dateTo]);
 
   const handleCreate = async (data: {
     groupId: string;
     description: string;
     amount: number;
+    category?: string;
+    splitType?: string;
     payerId: string;
     expenseDate: string;
     notes?: string;
@@ -165,6 +214,8 @@ export function ExpenseList({ expenses, groups, currentUserId }: ExpenseListProp
     groupId: string;
     description: string;
     amount: number;
+    category?: string;
+    splitType?: string;
     payerId: string;
     expenseDate: string;
     notes?: string;
@@ -226,6 +277,7 @@ export function ExpenseList({ expenses, groups, currentUserId }: ExpenseListProp
       groupId: expense.groupId,
       description: expense.description,
       amount,
+      category: expense.category ?? undefined,
       payerId: expense.payerId ?? "",
       expenseDate: format(new Date(expense.expenseDate), "yyyy-MM-dd"),
       notes: expense.notes ?? undefined,
@@ -269,6 +321,61 @@ export function ExpenseList({ expenses, groups, currentUserId }: ExpenseListProp
         </div>
       </div>
 
+      {/* Search & Filter bar */}
+      {groups.length > 0 && (
+        <div className="space-y-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Input
+              placeholder="Search expenses..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Select value={filterCategory} onValueChange={setFilterCategory}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                {(Object.entries(CATEGORIES) as [ExpenseCategory, { emoji: string; label: string }][]).map(
+                  ([key, { emoji, label }]) => (
+                    <SelectItem key={key} value={key}>
+                      {emoji} {label}
+                    </SelectItem>
+                  )
+                )}
+              </SelectContent>
+            </Select>
+            <div className="flex items-center gap-2">
+              <Input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="w-[140px]"
+                placeholder="From"
+              />
+              <span className="text-sm text-muted-foreground">to</span>
+              <Input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="w-[140px]"
+                placeholder="To"
+              />
+            </div>
+            {hasActiveFilters && (
+              <Button variant="ghost" size="sm" onClick={clearFilters}>
+                <X className="size-3.5" />
+                Clear filters
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Empty states */}
       {groups.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-16 text-center">
@@ -310,7 +417,7 @@ export function ExpenseList({ expenses, groups, currentUserId }: ExpenseListProp
                         </Badge>
                       </div>
                       <div className="flex items-center gap-2">
-                        <CategoryBadge />
+                        <CategoryBadge category={expense.category ?? undefined} />
                         <CardTitle className="truncate text-base">
                           {expense.description}
                         </CardTitle>

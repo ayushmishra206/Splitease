@@ -11,6 +11,7 @@ import {
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
 import type { GroupDetailData } from "@/actions/group-detail";
+import { simplifyDebts, computeNetBalances } from "@/lib/simplify-debts";
 import { AmountDisplay } from "@/components/ui/amount-display";
 import { AvatarStack } from "@/components/ui/avatar-stack";
 import { CategoryBadge } from "@/components/ui/category-badge";
@@ -46,33 +47,13 @@ export function GroupDetailClient({ data, currentUserId }: GroupDetailClientProp
     setTimeout(() => setCopied(false), 2000);
   }
 
-  // Compute simplified balances
-  const net: Record<string, number> = {};
-  for (const expense of expenses) {
-    if (!expense.payerId) continue;
-    for (const split of expense.splits) {
-      if (expense.payerId === currentUserId && split.memberId !== currentUserId) {
-        net[split.memberId] = (net[split.memberId] ?? 0) + split.share;
-      } else if (expense.payerId !== currentUserId && split.memberId === currentUserId) {
-        net[expense.payerId] = (net[expense.payerId] ?? 0) - split.share;
-      }
-    }
-  }
-  for (const s of settlements) {
-    if (s.fromMember === currentUserId) {
-      net[s.toMember] = (net[s.toMember] ?? 0) + s.amount;
-    } else if (s.toMember === currentUserId) {
-      net[s.fromMember] = (net[s.fromMember] ?? 0) - s.amount;
-    }
-  }
-  const balanceList = Object.entries(net)
-    .filter(([, amount]) => Math.abs(amount) > 0.01)
-    .map(([memberId, amount]) => ({
-      memberId,
-      memberName: members.find((m) => m.id === memberId)?.fullName ?? "Unknown",
-      amount: Math.round(amount * 100) / 100,
-    }))
-    .sort((a, b) => b.amount - a.amount);
+  // Compute simplified debts for the whole group
+  const netBalances = computeNetBalances(expenses, settlements);
+  const simplifiedTransfers = simplifyDebts(netBalances);
+  const memberNameMap = Object.fromEntries(members.map((m) => [m.id, m.fullName]));
+
+  // Also compute user-centric balances for the header context
+  const myBalance = netBalances[currentUserId] ?? 0;
 
   // Group expenses by date
   const expensesByDate = new Map<string, typeof expenses>();
@@ -177,7 +158,7 @@ export function GroupDetailClient({ data, currentUserId }: GroupDetailClientProp
                       <Card key={expense.id} className="py-4">
                         <CardContent className="py-0">
                           <div className="flex items-center gap-3">
-                            <CategoryBadge />
+                            <CategoryBadge category={expense.category ?? undefined} />
                             <div className="min-w-0 flex-1">
                               <p className="text-sm font-medium truncate">{expense.description}</p>
                               <p className="text-xs text-muted-foreground">
@@ -212,41 +193,66 @@ export function GroupDetailClient({ data, currentUserId }: GroupDetailClientProp
       )}
 
       {activeTab === "balances" && (
-        <div className="space-y-3">
-          {balanceList.length === 0 ? (
-            <Card className="py-12">
-              <CardContent className="flex flex-col items-center text-center">
-                <p className="text-2xl mb-2">🎉</p>
-                <p className="text-lg font-medium mb-1">All settled up!</p>
-                <p className="text-sm text-muted-foreground">
-                  No outstanding balances in this group
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            balanceList.map((b) => (
-              <Card key={b.memberId} className="py-4">
-                <CardContent className="py-0">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium">{b.memberName}</p>
-                      <p className={cn(
-                        "text-xs",
-                        b.amount > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
-                      )}>
-                        {b.amount > 0 ? "owes you" : "you owe"}
-                      </p>
-                    </div>
-                    <AmountDisplay
-                      amount={b.amount}
-                      currency={group.currency}
-                      className="text-base font-bold"
-                    />
-                  </div>
+        <div className="space-y-4">
+          {/* Your balance summary */}
+          {Math.abs(myBalance) > 0.01 && (
+            <div className={cn(
+              "rounded-lg border p-4",
+              myBalance > 0
+                ? "border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30"
+                : "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30"
+            )}>
+              <p className="text-sm font-medium">
+                {myBalance > 0
+                  ? `You are owed ${formatCurrency(myBalance, group.currency)}`
+                  : `You owe ${formatCurrency(Math.abs(myBalance), group.currency)}`}
+              </p>
+            </div>
+          )}
+
+          {/* Simplified settlements */}
+          <div>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+              Suggested settlements
+            </h3>
+            {simplifiedTransfers.length === 0 ? (
+              <Card className="py-12">
+                <CardContent className="flex flex-col items-center text-center">
+                  <p className="text-2xl mb-2">🎉</p>
+                  <p className="text-lg font-medium mb-1">All settled up!</p>
+                  <p className="text-sm text-muted-foreground">
+                    No outstanding balances in this group
+                  </p>
                 </CardContent>
               </Card>
-            ))
-          )}
+            ) : (
+              <div className="space-y-2">
+                {simplifiedTransfers.map((t, i) => {
+                  const fromName = t.from === currentUserId ? "You" : (memberNameMap[t.from] ?? "Unknown");
+                  const toName = t.to === currentUserId ? "you" : (memberNameMap[t.to] ?? "Unknown");
+                  const involvesMe = t.from === currentUserId || t.to === currentUserId;
+                  return (
+                    <Card key={i} className={cn("py-4", involvesMe && "border-emerald-200 dark:border-emerald-800")}>
+                      <CardContent className="py-0">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm">
+                            <span className="font-medium">{fromName}</span>
+                            {" pays "}
+                            <span className="font-medium">{toName}</span>
+                          </p>
+                          <AmountDisplay
+                            amount={t.amount}
+                            currency={group.currency}
+                            className="text-base font-bold"
+                          />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

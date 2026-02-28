@@ -98,8 +98,8 @@ export async function changePassword(formData: FormData) {
     select: { password: true },
   });
 
-  if (!dbUser) {
-    return { error: "User not found" };
+  if (!dbUser || !dbUser.password) {
+    return { error: dbUser ? "Account uses Google sign-in. Password cannot be changed." : "User not found" };
   }
 
   const valid = await bcrypt.compare(currentPassword, dbUser.password);

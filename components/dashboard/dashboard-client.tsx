@@ -209,7 +209,7 @@ export function DashboardClient({ data, currentUserId }: DashboardClientProps) {
                     key={expense.id}
                     className="flex items-center gap-3"
                   >
-                    <CategoryBadge />
+                    <CategoryBadge category={expense.category ?? undefined} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">
                         {expense.description}

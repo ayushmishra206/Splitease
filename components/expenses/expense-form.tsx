@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { computeEqualSplit, formatCurrency } from "@/lib/utils";
+import { CATEGORIES, type ExpenseCategory } from "@/lib/categories";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
+type SplitType = "equal" | "percentage" | "shares" | "exact";
 
 const expenseSchema = z.object({
   groupId: z.string().min(1, "Select a group"),
@@ -64,6 +67,7 @@ interface ExpenseFormProps {
     groupId: string;
     description: string;
     amount: number;
+    category?: string;
     payerId: string;
     expenseDate: string;
     notes?: string;
@@ -75,6 +79,8 @@ interface ExpenseFormProps {
     groupId: string;
     description: string;
     amount: number;
+    category?: string;
+    splitType?: string;
     payerId: string;
     expenseDate: string;
     notes?: string;
@@ -115,8 +121,11 @@ export function ExpenseForm({
   const amount = watch("amount");
   const validAmount = typeof amount === "number" && amount > 0 ? amount : 0;
 
-  const [splitMethod, setSplitMethod] = useState<"equal" | "custom">(
-    defaultValues?.splitMethod ?? "equal"
+  const [category, setCategory] = useState<string>(
+    defaultValues?.category ?? ""
+  );
+  const [splitMethod, setSplitMethod] = useState<SplitType>(
+    (defaultValues?.splitMethod as SplitType) ?? "equal"
   );
   const [participantIds, setParticipantIds] = useState<string[]>(
     defaultValues?.participantIds ?? []
@@ -207,12 +216,14 @@ export function ExpenseForm({
     return computeEqualSplit(validAmount, participantIds.length);
   }, [validAmount, participantIds.length]);
 
-  // Custom split total
+  // Custom split total (for exact and percentage/shares validation)
   const customTotal = useMemo(() => {
     return participantIds.reduce((sum, id) => sum + (customSplits[id] ?? 0), 0);
   }, [participantIds, customSplits]);
 
-  const customDiff = validAmount - customTotal;
+  const customDiff = splitMethod === "percentage"
+    ? 100 - customTotal
+    : validAmount - customTotal;
 
   // Validate splits before submit
   const validateSplits = (): { memberId: string; share: number }[] | null => {
@@ -229,8 +240,32 @@ export function ExpenseForm({
       }));
     }
 
-    // Custom: validate sum matches amount within tolerance
-    if (Math.abs(customDiff) > 0.01) {
+    if (splitMethod === "percentage") {
+      if (Math.abs(100 - customTotal) > 0.01) {
+        setSplitError(`Percentages must add up to 100% (currently ${customTotal.toFixed(1)}%)`);
+        return null;
+      }
+      setSplitError(null);
+      return participantIds.map((id) => ({
+        memberId: id,
+        share: Math.round(validAmount * (customSplits[id] ?? 0) / 100 * 100) / 100,
+      }));
+    }
+
+    if (splitMethod === "shares") {
+      if (customTotal <= 0) {
+        setSplitError("Total shares must be greater than 0");
+        return null;
+      }
+      setSplitError(null);
+      return participantIds.map((id) => ({
+        memberId: id,
+        share: Math.round(validAmount * (customSplits[id] ?? 0) / customTotal * 100) / 100,
+      }));
+    }
+
+    // Exact: validate sum matches amount within tolerance
+    if (Math.abs(validAmount - customTotal) > 0.01) {
       setSplitError(
         `Split total (${formatCurrency(customTotal, currency)}) must equal expense amount (${formatCurrency(validAmount, currency)})`
       );
@@ -252,6 +287,8 @@ export function ExpenseForm({
       groupId: data.groupId,
       description: data.description,
       amount: data.amount,
+      category: category || undefined,
+      splitType: splitMethod,
       payerId: data.payerId,
       expenseDate: data.expenseDate,
       notes: data.notes || undefined,
@@ -293,6 +330,25 @@ export function ExpenseForm({
         {errors.description && (
           <p className="text-sm text-destructive">{errors.description.message}</p>
         )}
+      </div>
+
+      {/* Category */}
+      <div className="space-y-2">
+        <Label>Category</Label>
+        <Select value={category} onValueChange={setCategory}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select a category (optional)" />
+          </SelectTrigger>
+          <SelectContent>
+            {(Object.entries(CATEGORIES) as [ExpenseCategory, { emoji: string; label: string }][]).map(
+              ([key, { emoji, label }]) => (
+                <SelectItem key={key} value={key}>
+                  {emoji} {label}
+                </SelectItem>
+              )
+            )}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Amount & Date row */}
@@ -394,23 +450,18 @@ export function ExpenseForm({
       {groupId && participantIds.length > 0 && (
         <div className="space-y-3">
           <Label>Split Method</Label>
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant={splitMethod === "equal" ? "default" : "outline"}
-              onClick={() => setSplitMethod("equal")}
-            >
-              Equal
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={splitMethod === "custom" ? "default" : "outline"}
-              onClick={() => setSplitMethod("custom")}
-            >
-              Custom
-            </Button>
+          <div className="flex flex-wrap gap-2">
+            {(["equal", "percentage", "shares", "exact"] as const).map((type) => (
+              <Button
+                key={type}
+                type="button"
+                size="sm"
+                variant={splitMethod === type ? "default" : "outline"}
+                onClick={() => setSplitMethod(type)}
+              >
+                {type.charAt(0).toUpperCase() + type.slice(1)}
+              </Button>
+            ))}
           </div>
 
           {/* Equal split preview */}
@@ -436,11 +487,12 @@ export function ExpenseForm({
             </div>
           )}
 
-          {/* Custom split inputs */}
-          {splitMethod === "custom" && (
+          {/* Split inputs for non-equal methods */}
+          {splitMethod !== "equal" && (
             <div className="space-y-2">
               {participantIds.map((id) => {
                 const member = members.find((m) => m.memberId === id);
+                const suffix = splitMethod === "percentage" ? "%" : splitMethod === "shares" ? " shares" : "";
                 return (
                   <div key={id} className="flex items-center gap-3">
                     <span className="min-w-0 flex-1 truncate text-sm">
@@ -448,24 +500,29 @@ export function ExpenseForm({
                         ? "You"
                         : member?.member.fullName ?? "Unknown"}
                     </span>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      className="w-28"
-                      value={customSplits[id] ?? ""}
-                      onChange={(e) => handleCustomSplitChange(id, e.target.value)}
-                      placeholder="0.00"
-                    />
+                    <div className="flex items-center gap-1">
+                      <Input
+                        type="number"
+                        step={splitMethod === "shares" ? "1" : "0.01"}
+                        min="0"
+                        className="w-24"
+                        value={customSplits[id] ?? ""}
+                        onChange={(e) => handleCustomSplitChange(id, e.target.value)}
+                        placeholder="0"
+                      />
+                      {suffix && (
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">{suffix}</span>
+                      )}
+                    </div>
                   </div>
                 );
               })}
 
-              {/* Running total */}
-              {validAmount > 0 && (
+              {/* Running total / validation indicator */}
+              {(splitMethod === "exact" && validAmount > 0) && (
                 <div
                   className={`flex items-center justify-between rounded-md border p-2 text-sm ${
-                    Math.abs(customDiff) <= 0.01
+                    Math.abs(validAmount - customTotal) <= 0.01
                       ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400"
                       : "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400"
                   }`}
@@ -474,13 +531,50 @@ export function ExpenseForm({
                     Total: {formatCurrency(customTotal, currency)} /{" "}
                     {formatCurrency(validAmount, currency)}
                   </span>
-                  {Math.abs(customDiff) > 0.01 && (
+                  {Math.abs(validAmount - customTotal) > 0.01 && (
                     <span className="font-medium">
-                      {customDiff > 0
-                        ? `${formatCurrency(customDiff, currency)} remaining`
-                        : `${formatCurrency(Math.abs(customDiff), currency)} over`}
+                      {validAmount - customTotal > 0
+                        ? `${formatCurrency(validAmount - customTotal, currency)} remaining`
+                        : `${formatCurrency(Math.abs(validAmount - customTotal), currency)} over`}
                     </span>
                   )}
+                </div>
+              )}
+
+              {splitMethod === "percentage" && (
+                <div
+                  className={`flex items-center justify-between rounded-md border p-2 text-sm ${
+                    Math.abs(100 - customTotal) <= 0.01
+                      ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400"
+                      : "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400"
+                  }`}
+                >
+                  <span>Total: {customTotal.toFixed(1)}% / 100%</span>
+                  {Math.abs(100 - customTotal) > 0.01 && (
+                    <span className="font-medium">
+                      {100 - customTotal > 0
+                        ? `${(100 - customTotal).toFixed(1)}% remaining`
+                        : `${Math.abs(100 - customTotal).toFixed(1)}% over`}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {splitMethod === "shares" && customTotal > 0 && validAmount > 0 && (
+                <div className="space-y-1.5 rounded-md border bg-muted/30 p-3">
+                  <p className="text-xs font-medium text-muted-foreground">Preview</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {participantIds.map((id) => {
+                      const member = members.find((m) => m.memberId === id);
+                      const share = Math.round(validAmount * (customSplits[id] ?? 0) / customTotal * 100) / 100;
+                      return (
+                        <Badge key={id} variant="secondary" className="text-xs font-normal">
+                          {member?.member.id === currentUserId ? "You" : member?.member.fullName ?? "Unknown"}
+                          : {formatCurrency(share, currency)}
+                        </Badge>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 

@@ -30,6 +30,7 @@ export type DashboardData = {
     id: string;
     description: string;
     amount: number;
+    category: string | null;
     currency: string;
     groupName: string;
     payerName: string;
@@ -109,6 +110,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
           id: true,
           description: true,
           amount: true,
+          category: true,
           expenseDate: true,
           payerId: true,
           groupId: true,
@@ -258,6 +260,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
       id: e.id,
       description: e.description,
       amount: parseFloat(String(e.amount)),
+      category: e.category,
       currency: e.group.currency,
       groupName: e.group.name,
       payerName: e.payer?.fullName ?? "Unknown",
