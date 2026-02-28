@@ -1,21 +1,5 @@
-import { fetchSettlements } from "@/actions/settlements";
-import { fetchGroups } from "@/actions/groups";
-import { createClient } from "@/lib/supabase/server";
-import { SettlementList } from "@/components/settlements/settlement-list";
+import { redirect } from "next/navigation";
 
-export default async function SettlementsPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const [settlements, groups] = await Promise.all([
-    fetchSettlements(),
-    fetchGroups(),
-  ]);
-
-  return (
-    <SettlementList
-      settlements={settlements}
-      groups={groups}
-      currentUserId={user!.id}
-    />
-  );
+export default function SettlementsPage() {
+  redirect("/groups");
 }
