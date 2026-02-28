@@ -184,3 +184,25 @@ export async function searchProfiles(term: string) {
     take: 10,
   });
 }
+
+export async function archiveGroup(id: string) {
+  const user = await getAuthenticatedUser();
+  const group = await prisma.group.findFirst({ where: { id, ownerId: user.id } });
+  if (!group) throw new Error("Group not found or not authorized");
+
+  await prisma.group.update({ where: { id }, data: { status: "archived" } });
+  revalidatePath("/groups");
+  revalidatePath(`/groups/${id}`);
+  revalidatePath("/");
+}
+
+export async function restoreGroup(id: string) {
+  const user = await getAuthenticatedUser();
+  const group = await prisma.group.findFirst({ where: { id, ownerId: user.id } });
+  if (!group) throw new Error("Group not found or not authorized");
+
+  await prisma.group.update({ where: { id }, data: { status: "active" } });
+  revalidatePath("/groups");
+  revalidatePath(`/groups/${id}`);
+  revalidatePath("/");
+}

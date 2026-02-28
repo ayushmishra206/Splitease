@@ -10,6 +10,7 @@ export type GroupDetailData = {
     description: string | null;
     currency: string;
     ownerId: string;
+    status: string;
   };
   members: Array<{
     id: string;
@@ -53,7 +54,7 @@ export async function fetchGroupDetail(groupId: string): Promise<GroupDetailData
   const [group, members, expenses, settlements] = await Promise.all([
     prisma.group.findUniqueOrThrow({
       where: { id: groupId },
-      select: { id: true, name: true, description: true, currency: true, ownerId: true },
+      select: { id: true, name: true, description: true, currency: true, ownerId: true, status: true },
     }),
     prisma.groupMember.findMany({
       where: { groupId },

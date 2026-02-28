@@ -6,6 +6,7 @@ import Link from "next/link";
 import { createGroup, updateGroup, deleteGroup } from "@/actions/groups";
 import { toast } from "sonner";
 import {
+  Archive,
   Calendar,
   Crown,
   Pencil,
@@ -50,6 +51,7 @@ type GroupWithMembers = {
   name: string;
   description: string | null;
   currency: string;
+  status: string;
   ownerId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -87,6 +89,9 @@ export function GroupList({ groups, currentUserId }: GroupListProps) {
     null
   );
   const [deleting, setDeleting] = useState(false);
+
+  const activeGroups = groups.filter((g) => g.status !== "archived");
+  const archivedGroups = groups.filter((g) => g.status === "archived");
 
   const handleCreate = async (data: {
     name: string;
@@ -148,7 +153,7 @@ export function GroupList({ groups, currentUserId }: GroupListProps) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-semibold">Groups</h1>
-          <Badge variant="secondary">{groups.length}</Badge>
+          <Badge variant="secondary">{activeGroups.length}</Badge>
         </div>
         <Button onClick={() => setCreateOpen(true)} className="hidden lg:flex">
           <Plus className="size-4" />
@@ -157,7 +162,7 @@ export function GroupList({ groups, currentUserId }: GroupListProps) {
       </div>
 
       {/* Group grid */}
-      {groups.length === 0 ? (
+      {activeGroups.length === 0 && archivedGroups.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-16 text-center">
           <UsersRound className="mx-auto size-12 text-muted-foreground/50" />
           <h2 className="mt-4 text-lg font-semibold">No groups yet</h2>
@@ -171,7 +176,7 @@ export function GroupList({ groups, currentUserId }: GroupListProps) {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {groups.map((group) => {
+          {activeGroups.map((group) => {
             const isOwner = group.ownerId === currentUserId;
 
             return (
@@ -262,6 +267,47 @@ export function GroupList({ groups, currentUserId }: GroupListProps) {
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {archivedGroups.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            Archived
+          </h2>
+          <div className="grid grid-cols-1 gap-4 opacity-60 md:grid-cols-2 lg:grid-cols-3">
+            {archivedGroups.map((group) => {
+              return (
+                <Card key={group.id} className="gap-4">
+                  <Link href={`/groups/${group.id}`}>
+                    <CardHeader className="pb-0">
+                      <div className="flex items-start justify-between">
+                        <div className="min-w-0 flex-1">
+                          <CardTitle className="truncate text-base">{group.name}</CardTitle>
+                          {group.description && (
+                            <CardDescription className="mt-1 line-clamp-2">{group.description}</CardDescription>
+                          )}
+                        </div>
+                        <Badge variant="outline" className="ml-2 shrink-0">{group.currency}</Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <span className="flex items-center gap-1.5">
+                          <Users className="size-3.5" />
+                          {group.members.length} {group.members.length === 1 ? "member" : "members"}
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          <Archive className="size-3.5" />
+                          Archived
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Link>
+                </Card>
+              );
+            })}
+          </div>
         </div>
       )}
 

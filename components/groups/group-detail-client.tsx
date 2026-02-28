@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { format, formatDistanceToNow, isToday, isYesterday } from "date-fns";
 import {
+  Archive,
+  ArchiveRestore,
   ArrowLeft,
   Copy,
   Check,
@@ -12,6 +14,7 @@ import {
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
 import type { GroupDetailData } from "@/actions/group-detail";
+import { archiveGroup, restoreGroup } from "@/actions/groups";
 import { createSettlement } from "@/actions/settlements";
 import { simplifyDebts, computeNetBalances } from "@/lib/simplify-debts";
 import { AmountDisplay } from "@/components/ui/amount-display";
@@ -107,6 +110,10 @@ export function GroupDetailClient({ data, currentUserId }: GroupDetailClientProp
   const simplifiedTransfers = simplifyDebts(netBalances);
   const memberNameMap = Object.fromEntries(members.map((m) => [m.id, m.fullName]));
 
+  const isOwner = group.ownerId === currentUserId;
+  const isArchived = group.status === "archived";
+  const allSettled = simplifiedTransfers.length === 0;
+
   // Also compute user-centric balances for the header context
   const myBalance = netBalances[currentUserId] ?? 0;
 
@@ -161,6 +168,26 @@ export function GroupDetailClient({ data, currentUserId }: GroupDetailClientProp
           {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
           {copied ? "Copied" : "Invite"}
         </Button>
+        {isOwner && !isArchived && allSettled && (
+          <Button variant="outline" size="sm" onClick={async () => {
+            await archiveGroup(group.id);
+            toast.success("Group archived");
+            router.refresh();
+          }}>
+            <Archive className="h-4 w-4" />
+            Archive
+          </Button>
+        )}
+        {isOwner && isArchived && (
+          <Button variant="outline" size="sm" onClick={async () => {
+            await restoreGroup(group.id);
+            toast.success("Group restored");
+            router.refresh();
+          }}>
+            <ArchiveRestore className="h-4 w-4" />
+            Restore
+          </Button>
+        )}
       </div>
 
       {/* Tabs */}
@@ -184,6 +211,12 @@ export function GroupDetailClient({ data, currentUserId }: GroupDetailClientProp
         ))}
       </div>
 
+      {isArchived && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+          This group is archived. No new expenses or settlements can be added.
+        </div>
+      )}
+
       {/* Tab content */}
       {activeTab === "expenses" && (
         <div className="space-y-6">
@@ -194,9 +227,11 @@ export function GroupDetailClient({ data, currentUserId }: GroupDetailClientProp
                 <p className="text-sm text-muted-foreground mb-4">
                   Add your first expense to this group
                 </p>
-                <Button asChild>
-                  <Link href={`/expenses?create=true&group=${group.id}`}>Add expense</Link>
-                </Button>
+                {!isArchived && (
+                  <Button asChild>
+                    <Link href={`/expenses?create=true&group=${group.id}`}>Add expense</Link>
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ) : (
@@ -271,7 +306,7 @@ export function GroupDetailClient({ data, currentUserId }: GroupDetailClientProp
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Suggested settlements
               </h3>
-              {simplifiedTransfers.length > 0 && (
+              {!isArchived && simplifiedTransfers.length > 0 && (
                 <Button size="sm" variant="outline" onClick={() => openSettleDialog()}>
                   Settle Up
                 </Button>
@@ -308,12 +343,14 @@ export function GroupDetailClient({ data, currentUserId }: GroupDetailClientProp
                               currency={group.currency}
                               className="text-base font-bold"
                             />
-                            <Button
-                              size="sm"
-                              onClick={() => openSettleDialog(t.from, t.to, t.amount)}
-                            >
-                              Settle
-                            </Button>
+                            {!isArchived && (
+                              <Button
+                                size="sm"
+                                onClick={() => openSettleDialog(t.from, t.to, t.amount)}
+                              >
+                                Settle
+                              </Button>
+                            )}
                           </div>
                         </div>
                       </CardContent>
