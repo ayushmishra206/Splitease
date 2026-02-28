@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   Users,
   Receipt,
+  BarChart3,
   Settings,
   LogOut,
   ChevronsLeft,
@@ -23,6 +24,7 @@ const navItems = [
   { label: "Dashboard", path: "/", icon: LayoutDashboard },
   { label: "Groups", path: "/groups", icon: Users },
   { label: "Expenses", path: "/expenses", icon: Receipt },
+  { label: "Analytics", path: "/analytics", icon: BarChart3 },
   { label: "Settings", path: "/settings", icon: Settings },
 ];
 
