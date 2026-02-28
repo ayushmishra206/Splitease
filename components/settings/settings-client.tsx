@@ -10,6 +10,8 @@ import {
   Mail,
   Calendar,
   Shield,
+  Palette,
+  Database,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -89,127 +91,160 @@ export function SettingsClient({ profile }: SettingsClientProps) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <h1 className="text-2xl font-semibold">Settings</h1>
 
-      {/* Profile */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <User className="size-5" />
-            Profile
-          </CardTitle>
-          <CardDescription>Your account information</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1">
-              <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-                <User className="size-3.5" />
-                Name
-              </p>
-              <p className="text-sm">{profile.fullName || "Not set"}</p>
-            </div>
-            <div className="space-y-1">
-              <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-                <Mail className="size-3.5" />
-                Email
-              </p>
-              <p className="text-sm">{profile.email}</p>
-            </div>
-            <div className="space-y-1">
-              <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-                <Calendar className="size-3.5" />
-                Member since
-              </p>
-              <p className="text-sm">
-                {format(new Date(profile.createdAt), "MMMM d, yyyy")}
-              </p>
-            </div>
-            <div className="space-y-1">
-              <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-                <Shield className="size-3.5" />
-                User ID
-              </p>
-              <p className="font-mono text-xs text-muted-foreground">
-                {profile.id}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* ── Account Section ── */}
+      <section className="space-y-4">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Account
+        </h2>
 
-      {/* Appearance */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Appearance</CardTitle>
-          <CardDescription>Customize the look and feel</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">Theme</p>
-              <p className="text-sm text-muted-foreground">
-                Switch between light and dark mode
-              </p>
+        {/* Profile */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <div className="rounded-lg bg-primary/10 p-1">
+                <User className="size-4 text-primary" />
+              </div>
+              Profile
+            </CardTitle>
+            <CardDescription>Your account information</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1">
+                <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+                  <User className="size-3.5" />
+                  Name
+                </p>
+                <p className="text-sm">{profile.fullName || "Not set"}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+                  <Mail className="size-3.5" />
+                  Email
+                </p>
+                <p className="text-sm">{profile.email}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+                  <Calendar className="size-3.5" />
+                  Member since
+                </p>
+                <p className="text-sm">
+                  {format(new Date(profile.createdAt), "MMMM d, yyyy")}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+                  <Shield className="size-3.5" />
+                  User ID
+                </p>
+                <p className="font-mono text-xs text-muted-foreground">
+                  {profile.id}
+                </p>
+              </div>
             </div>
-            <ThemeToggle />
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </section>
 
-      {/* Data Management */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Data Management</CardTitle>
-          <CardDescription>
-            Export or import your groups, expenses, and settlements
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-col gap-4 sm:flex-row">
-            <div className="flex-1 space-y-2">
-              <h3 className="text-sm font-medium">Export Data</h3>
-              <p className="text-sm text-muted-foreground">
-                Download all your groups and expense data as a JSON file.
-              </p>
-              <Button
-                variant="outline"
-                onClick={handleExport}
-                disabled={exporting}
-              >
-                <Download className="size-4" />
-                {exporting ? "Exporting..." : "Export Data"}
-              </Button>
+      {/* ── Preferences Section ── */}
+      <section className="space-y-4">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Preferences
+        </h2>
+
+        {/* Appearance */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <div className="rounded-lg bg-primary/10 p-1">
+                <Palette className="size-4 text-primary" />
+              </div>
+              Appearance
+            </CardTitle>
+            <CardDescription>Customize the look and feel</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Theme</p>
+                <p className="text-sm text-muted-foreground">
+                  Switch between light and dark mode
+                </p>
+              </div>
+              <ThemeToggle />
             </div>
+          </CardContent>
+        </Card>
+      </section>
 
-            <Separator orientation="vertical" className="hidden sm:block" />
-            <Separator className="sm:hidden" />
+      {/* ── Data Section ── */}
+      <section className="space-y-4">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Data
+        </h2>
 
-            <div className="flex-1 space-y-2">
-              <h3 className="text-sm font-medium">Import Data</h3>
-              <p className="text-sm text-muted-foreground">
-                Restore data from a previously exported backup file.
-              </p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".json"
-                onChange={handleImport}
-                className="hidden"
-              />
-              <Button
-                variant="outline"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={importing}
-              >
-                <Upload className="size-4" />
-                {importing ? "Importing..." : "Import Data"}
-              </Button>
+        {/* Data Management */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <div className="rounded-lg bg-primary/10 p-1">
+                <Database className="size-4 text-primary" />
+              </div>
+              Data Management
+            </CardTitle>
+            <CardDescription>
+              Export or import your groups, expenses, and settlements
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-col gap-4 sm:flex-row">
+              <div className="flex-1 space-y-2">
+                <h3 className="text-sm font-medium">Export Data</h3>
+                <p className="text-sm text-muted-foreground">
+                  Download all your groups and expense data as a JSON file.
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={handleExport}
+                  disabled={exporting}
+                >
+                  <Download className="size-4" />
+                  {exporting ? "Exporting..." : "Export Data"}
+                </Button>
+              </div>
+
+              <Separator orientation="vertical" className="hidden sm:block" />
+              <Separator className="sm:hidden" />
+
+              <div className="flex-1 space-y-2">
+                <h3 className="text-sm font-medium">Import Data</h3>
+                <p className="text-sm text-muted-foreground">
+                  Restore data from a previously exported backup file.
+                </p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".json"
+                  onChange={handleImport}
+                  className="hidden"
+                />
+                <Button
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={importing}
+                >
+                  <Upload className="size-4" />
+                  {importing ? "Importing..." : "Import Data"}
+                </Button>
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </section>
     </div>
   );
 }
