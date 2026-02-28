@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { computeEqualSplit, formatCurrency } from "@/lib/utils";
 import { CATEGORIES, type ExpenseCategory } from "@/lib/categories";
 import { useUploadThing } from "@/lib/uploadthing";
-import { Upload, X } from "lucide-react";
+import { Upload, X, Repeat } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -88,6 +88,8 @@ interface ExpenseFormProps {
     payerId: string;
     expenseDate: string;
     notes?: string;
+    isRecurring?: boolean;
+    recurrenceRule?: string;
     receiptUrl?: string;
     splits: { memberId: string; share: number }[];
   }) => Promise<void>;
@@ -145,6 +147,9 @@ export function ExpenseForm({
   );
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrenceRule, setRecurrenceRule] = useState("monthly");
 
   const { startUpload } = useUploadThing("receiptUploader");
 
@@ -322,6 +327,8 @@ export function ExpenseForm({
       payerId: data.payerId,
       expenseDate: data.expenseDate,
       notes: data.notes || undefined,
+      isRecurring: isRecurring || undefined,
+      recurrenceRule: isRecurring ? recurrenceRule : undefined,
       receiptUrl: finalReceiptUrl,
       splits,
     });
@@ -685,6 +692,33 @@ export function ExpenseForm({
               }}
             />
           </label>
+        )}
+      </div>
+
+      {/* Recurring */}
+      <div className="space-y-2">
+        <label className="flex cursor-pointer items-center gap-3">
+          <Checkbox
+            checked={isRecurring}
+            onCheckedChange={(checked) => setIsRecurring(checked === true)}
+          />
+          <span className="flex items-center gap-1.5 text-sm font-medium">
+            <Repeat className="size-4" />
+            Make this recurring
+          </span>
+        </label>
+        {isRecurring && (
+          <Select value={recurrenceRule} onValueChange={setRecurrenceRule}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="weekly">Weekly</SelectItem>
+              <SelectItem value="biweekly">Every 2 weeks</SelectItem>
+              <SelectItem value="monthly">Monthly</SelectItem>
+              <SelectItem value="yearly">Yearly</SelectItem>
+            </SelectContent>
+          </Select>
         )}
       </div>
 

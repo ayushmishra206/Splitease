@@ -6,6 +6,17 @@ import { getAuthenticatedUser } from "@/lib/auth";
 import { sendEmail } from "@/lib/email/send";
 import { expenseAddedEmail } from "@/lib/email/templates";
 
+function computeNextOccurrence(date: Date, rule: string): Date {
+  const next = new Date(date);
+  switch (rule) {
+    case "weekly": next.setDate(next.getDate() + 7); break;
+    case "biweekly": next.setDate(next.getDate() + 14); break;
+    case "monthly": next.setMonth(next.getMonth() + 1); break;
+    case "yearly": next.setFullYear(next.getFullYear() + 1); break;
+  }
+  return next;
+}
+
 export async function fetchExpenses(groupId?: string, cursor?: string, limit = 20) {
   const user = await getAuthenticatedUser();
 
@@ -58,6 +69,8 @@ export async function createExpense(input: {
   payerId: string;
   expenseDate: string;
   notes?: string;
+  isRecurring?: boolean;
+  recurrenceRule?: string;
   receiptUrl?: string;
   splits: { memberId: string; share: number }[];
 }) {
@@ -79,6 +92,11 @@ export async function createExpense(input: {
       expenseDate: new Date(input.expenseDate),
       notes: input.notes,
       receiptUrl: input.receiptUrl,
+      isRecurring: input.isRecurring ?? false,
+      recurrenceRule: input.isRecurring ? input.recurrenceRule : null,
+      nextOccurrence: input.isRecurring && input.recurrenceRule
+        ? computeNextOccurrence(new Date(input.expenseDate), input.recurrenceRule)
+        : null,
       splits: {
         create: input.splits.map((s) => ({
           memberId: s.memberId,
