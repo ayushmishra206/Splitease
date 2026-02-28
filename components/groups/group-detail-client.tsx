@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { format, formatDistanceToNow, isToday, isYesterday } from "date-fns";
 import {
   ArrowLeft,
@@ -11,12 +12,29 @@ import {
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
 import type { GroupDetailData } from "@/actions/group-detail";
+import { createSettlement } from "@/actions/settlements";
 import { simplifyDebts, computeNetBalances } from "@/lib/simplify-debts";
 import { AmountDisplay } from "@/components/ui/amount-display";
 import { AvatarStack } from "@/components/ui/avatar-stack";
 import { CategoryBadge } from "@/components/ui/category-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 interface GroupDetailClientProps {
@@ -33,8 +51,15 @@ function formatDateHeader(date: Date): string {
 }
 
 export function GroupDetailClient({ data, currentUserId }: GroupDetailClientProps) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>("expenses");
   const [copied, setCopied] = useState(false);
+  const [settleOpen, setSettleOpen] = useState(false);
+  const [settleFrom, setSettleFrom] = useState("");
+  const [settleTo, setSettleTo] = useState("");
+  const [settleAmount, setSettleAmount] = useState("");
+  const [settleNotes, setSettleNotes] = useState("");
+  const [settling, setSettling] = useState(false);
   const { group, members, expenses, settlements } = data;
 
   const memberNames = members.map((m) => m.fullName);
@@ -45,6 +70,36 @@ export function GroupDetailClient({ data, currentUserId }: GroupDetailClientProp
     setCopied(true);
     toast.success("Invite link copied!");
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  function openSettleDialog(from?: string, to?: string, amount?: number) {
+    setSettleFrom(from ?? currentUserId);
+    setSettleTo(to ?? "");
+    setSettleAmount(amount ? amount.toFixed(2) : "");
+    setSettleNotes("");
+    setSettleOpen(true);
+  }
+
+  async function handleSettle() {
+    if (!settleFrom || !settleTo || !settleAmount) return;
+    setSettling(true);
+    try {
+      await createSettlement({
+        groupId: group.id,
+        fromMember: settleFrom,
+        toMember: settleTo,
+        amount: parseFloat(settleAmount),
+        settlementDate: new Date().toISOString().split("T")[0],
+        notes: settleNotes || undefined,
+      });
+      toast.success("Settlement recorded!");
+      setSettleOpen(false);
+      router.refresh();
+    } catch {
+      toast.error("Failed to record settlement");
+    } finally {
+      setSettling(false);
+    }
   }
 
   // Compute simplified debts for the whole group
@@ -212,9 +267,16 @@ export function GroupDetailClient({ data, currentUserId }: GroupDetailClientProp
 
           {/* Simplified settlements */}
           <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-              Suggested settlements
-            </h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Suggested settlements
+              </h3>
+              {simplifiedTransfers.length > 0 && (
+                <Button size="sm" variant="outline" onClick={() => openSettleDialog()}>
+                  Settle Up
+                </Button>
+              )}
+            </div>
             {simplifiedTransfers.length === 0 ? (
               <Card className="py-12">
                 <CardContent className="flex flex-col items-center text-center">
@@ -240,11 +302,19 @@ export function GroupDetailClient({ data, currentUserId }: GroupDetailClientProp
                             {" pays "}
                             <span className="font-medium">{toName}</span>
                           </p>
-                          <AmountDisplay
-                            amount={t.amount}
-                            currency={group.currency}
-                            className="text-base font-bold"
-                          />
+                          <div className="flex items-center gap-2">
+                            <AmountDisplay
+                              amount={t.amount}
+                              currency={group.currency}
+                              className="text-base font-bold"
+                            />
+                            <Button
+                              size="sm"
+                              onClick={() => openSettleDialog(t.from, t.to, t.amount)}
+                            >
+                              Settle
+                            </Button>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
@@ -282,6 +352,72 @@ export function GroupDetailClient({ data, currentUserId }: GroupDetailClientProp
           )}
         </div>
       )}
+
+      {/* Settle-up Dialog */}
+      <Dialog open={settleOpen} onOpenChange={setSettleOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Record Settlement</DialogTitle>
+            <DialogDescription>
+              Record a payment between group members.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>From (who paid)</Label>
+              <Select value={settleFrom} onValueChange={setSettleFrom}>
+                <SelectTrigger><SelectValue placeholder="Select member" /></SelectTrigger>
+                <SelectContent>
+                  {members.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.id === currentUserId ? `${m.fullName} (You)` : m.fullName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>To (who received)</Label>
+              <Select value={settleTo} onValueChange={setSettleTo}>
+                <SelectTrigger><SelectValue placeholder="Select member" /></SelectTrigger>
+                <SelectContent>
+                  {members.filter((m) => m.id !== settleFrom).map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.id === currentUserId ? `${m.fullName} (You)` : m.fullName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Amount ({group.currency})</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={settleAmount}
+                onChange={(e) => setSettleAmount(e.target.value)}
+                className="font-mono"
+                placeholder="0.00"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Notes (optional)</Label>
+              <Input
+                value={settleNotes}
+                onChange={(e) => setSettleNotes(e.target.value)}
+                placeholder="e.g. Venmo, cash, bank transfer"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setSettleOpen(false)}>Cancel</Button>
+              <Button onClick={handleSettle} disabled={settling || !settleFrom || !settleTo || !settleAmount}>
+                {settling ? "Recording..." : "Record Settlement"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
