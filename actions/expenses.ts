@@ -6,7 +6,7 @@ import { getAuthenticatedUser } from "@/lib/auth";
 import { sendEmail } from "@/lib/email/send";
 import { expenseAddedEmail } from "@/lib/email/templates";
 
-export async function fetchExpenses(groupId?: string) {
+export async function fetchExpenses(groupId?: string, cursor?: string, limit = 20) {
   const user = await getAuthenticatedUser();
 
   const memberships = await prisma.groupMember.findMany({
@@ -18,6 +18,7 @@ export async function fetchExpenses(groupId?: string) {
   const expenses = await prisma.expense.findMany({
     where: {
       groupId: groupId && groupIds.includes(groupId) ? groupId : { in: groupIds },
+      ...(cursor ? { createdAt: { lt: new Date(cursor) } } : {}),
     },
     include: {
       group: { select: { id: true, name: true, currency: true } },
@@ -28,11 +29,12 @@ export async function fetchExpenses(groupId?: string) {
         },
       },
     },
-    orderBy: { expenseDate: "desc" },
+    orderBy: { createdAt: "desc" },
+    take: limit + 1,
   });
 
-  // Serialize Decimal fields to plain numbers for client components
-  return expenses.map((e) => ({
+  const hasMore = expenses.length > limit;
+  const items = (hasMore ? expenses.slice(0, limit) : expenses).map((e) => ({
     ...e,
     amount: parseFloat(String(e.amount)),
     splits: e.splits.map((s) => ({
@@ -40,6 +42,11 @@ export async function fetchExpenses(groupId?: string) {
       share: parseFloat(String(s.share)),
     })),
   }));
+
+  return {
+    items,
+    nextCursor: hasMore ? items[items.length - 1].createdAt.toISOString() : null,
+  };
 }
 
 export async function createExpense(input: {

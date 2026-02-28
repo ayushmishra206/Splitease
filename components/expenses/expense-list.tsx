@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createExpense, updateExpense, deleteExpense } from "@/actions/expenses";
+import { createExpense, updateExpense, deleteExpense, fetchExpenses } from "@/actions/expenses";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
@@ -121,15 +121,19 @@ type ExpenseWithDetails = {
 };
 
 interface ExpenseListProps {
-  expenses: ExpenseWithDetails[];
+  initialExpenses: ExpenseWithDetails[];
+  initialNextCursor: string | null;
   groups: GroupWithMembers[];
   currentUserId: string;
 }
 
-export function ExpenseList({ expenses, groups, currentUserId }: ExpenseListProps) {
+export function ExpenseList({ initialExpenses, initialNextCursor, groups, currentUserId }: ExpenseListProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  const [allExpenses, setAllExpenses] = useState<ExpenseWithDetails[]>(initialExpenses);
+  const [nextCursor, setNextCursor] = useState<string | null>(initialNextCursor);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [filterGroupId, setFilterGroupId] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
@@ -156,8 +160,31 @@ export function ExpenseList({ expenses, groups, currentUserId }: ExpenseListProp
     }
   }, [searchParams]);
 
+  // Sync local state when server props change (e.g. after router.refresh())
+  useEffect(() => {
+    setAllExpenses(initialExpenses);
+    setNextCursor(initialNextCursor);
+  }, [initialExpenses, initialNextCursor]);
+
+  const handleLoadMore = async () => {
+    if (!nextCursor) return;
+    setLoadingMore(true);
+    try {
+      const result = await fetchExpenses(
+        filterGroupId !== "all" ? filterGroupId : undefined,
+        nextCursor
+      );
+      setAllExpenses((prev) => [...prev, ...result.items as ExpenseWithDetails[]]);
+      setNextCursor(result.nextCursor);
+    } catch {
+      toast.error("Failed to load more expenses");
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   const filteredExpenses = useMemo(() => {
-    let result = expenses;
+    let result = allExpenses;
 
     if (filterGroupId !== "all") {
       result = result.filter((e) => e.groupId === filterGroupId);
@@ -187,7 +214,7 @@ export function ExpenseList({ expenses, groups, currentUserId }: ExpenseListProp
     }
 
     return result;
-  }, [expenses, filterGroupId, searchQuery, filterCategory, dateFrom, dateTo]);
+  }, [allExpenses, filterGroupId, searchQuery, filterCategory, dateFrom, dateTo]);
 
   const handleCreate = async (data: {
     groupId: string;
@@ -401,109 +428,118 @@ export function ExpenseList({ expenses, groups, currentUserId }: ExpenseListProp
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {filteredExpenses.map((expense) => {
-            const amount = toNumber(expense.amount);
-            const isPayer = expense.payerId === currentUserId;
+        <>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {filteredExpenses.map((expense) => {
+              const amount = toNumber(expense.amount);
+              const isPayer = expense.payerId === currentUserId;
 
-            return (
-              <Card key={expense.id} className="gap-3">
-                <CardHeader className="pb-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="mb-1.5 flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">
-                          {expense.group.name}
-                        </Badge>
+              return (
+                <Card key={expense.id} className="gap-3">
+                  <CardHeader className="pb-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-1.5 flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            {expense.group.name}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <CategoryBadge category={expense.category ?? undefined} />
+                          <CardTitle className="truncate text-base">
+                            {expense.description}
+                          </CardTitle>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <CategoryBadge category={expense.category ?? undefined} />
-                        <CardTitle className="truncate text-base">
-                          {expense.description}
-                        </CardTitle>
-                      </div>
-                    </div>
-                    <span
-                      className={`shrink-0 text-lg font-semibold font-mono ${
-                        isPayer
-                          ? "text-emerald-600 dark:text-emerald-400"
-                          : "text-foreground"
-                      }`}
-                    >
-                      {formatCurrency(amount, expense.group.currency)}
-                    </span>
-                  </div>
-                </CardHeader>
-
-                <CardContent className="space-y-3">
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1.5">
-                      <Calendar className="size-3.5" />
-                      {formatDate(expense.expenseDate)}
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <User className="size-3.5" />
-                      Paid by{" "}
-                      <span className="font-medium text-foreground">
-                        {expense.payer?.id === currentUserId
-                          ? "You"
-                          : expense.payer?.fullName ?? "Unknown"}
+                      <span
+                        className={`shrink-0 text-lg font-semibold font-mono ${
+                          isPayer
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : "text-foreground"
+                        }`}
+                      >
+                        {formatCurrency(amount, expense.group.currency)}
                       </span>
-                    </span>
-                  </div>
-
-                  {/* Participant breakdown */}
-                  <div className="space-y-1">
-                    <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                      <FileText className="size-3" />
-                      Split between {expense.splits.length}{" "}
-                      {expense.splits.length === 1 ? "person" : "people"}
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {expense.splits.map((split) => (
-                        <Badge key={split.id} variant="secondary" className="text-xs font-normal">
-                          {split.member.id === currentUserId
-                            ? "You"
-                            : split.member.fullName ?? "Unknown"}
-                          :{" "}
-                          {formatCurrency(toNumber(split.share), expense.group.currency)}
-                        </Badge>
-                      ))}
                     </div>
-                  </div>
+                  </CardHeader>
 
-                  {/* Notes */}
-                  {expense.notes && (
-                    <p className="flex items-start gap-1.5 text-sm text-muted-foreground">
-                      <StickyNote className="mt-0.5 size-3.5 shrink-0" />
-                      <span className="line-clamp-2">{expense.notes}</span>
-                    </p>
-                  )}
+                  <CardContent className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                      <span className="flex items-center gap-1.5">
+                        <Calendar className="size-3.5" />
+                        {formatDate(expense.expenseDate)}
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <User className="size-3.5" />
+                        Paid by{" "}
+                        <span className="font-medium text-foreground">
+                          {expense.payer?.id === currentUserId
+                            ? "You"
+                            : expense.payer?.fullName ?? "Unknown"}
+                        </span>
+                      </span>
+                    </div>
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 pt-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setEditExpense(expense)}
-                    >
-                      <Pencil className="size-3.5" />
-                      Edit
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      className="ml-auto"
-                      onClick={() => setDeleteTarget(expense)}
-                    >
-                      <Trash2 className="size-3.5 text-red-500 dark:text-red-400" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                    {/* Participant breakdown */}
+                    <div className="space-y-1">
+                      <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                        <FileText className="size-3" />
+                        Split between {expense.splits.length}{" "}
+                        {expense.splits.length === 1 ? "person" : "people"}
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {expense.splits.map((split) => (
+                          <Badge key={split.id} variant="secondary" className="text-xs font-normal">
+                            {split.member.id === currentUserId
+                              ? "You"
+                              : split.member.fullName ?? "Unknown"}
+                            :{" "}
+                            {formatCurrency(toNumber(split.share), expense.group.currency)}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Notes */}
+                    {expense.notes && (
+                      <p className="flex items-start gap-1.5 text-sm text-muted-foreground">
+                        <StickyNote className="mt-0.5 size-3.5 shrink-0" />
+                        <span className="line-clamp-2">{expense.notes}</span>
+                      </p>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 pt-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditExpense(expense)}
+                      >
+                        <Pencil className="size-3.5" />
+                        Edit
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="ml-auto"
+                        onClick={() => setDeleteTarget(expense)}
+                      >
+                        <Trash2 className="size-3.5 text-red-500 dark:text-red-400" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+          {nextCursor && (
+            <div className="flex justify-center pt-4">
+              <Button variant="outline" onClick={handleLoadMore} disabled={loadingMore}>
+                {loadingMore ? "Loading..." : "Load more expenses"}
+              </Button>
+            </div>
+          )}
+        </>
       )}
 
       {/* Mobile FAB */}
