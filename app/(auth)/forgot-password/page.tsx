@@ -1,19 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { requestPasswordReset } from "@/actions/password-reset";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+const COOLDOWN_SECONDS = 30;
+
 export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [cooldown]);
+
+  const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     setLoading(true);
@@ -27,14 +35,16 @@ export default function ForgotPasswordPage() {
         setError(result.error);
       } else if (result.success) {
         setSuccess(result.success);
-        setSent(true);
+        setCooldown(COOLDOWN_SECONDS);
       }
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  const isDisabled = loading || cooldown > 0;
 
   return (
     <div className="space-y-6">
@@ -66,11 +76,16 @@ export default function ForgotPasswordPage() {
             type="email"
             placeholder="you@example.com"
             required
-            disabled={sent}
           />
         </div>
-        <Button type="submit" className="w-full" disabled={loading || sent}>
-          {loading ? "Sending..." : sent ? "Link sent — check your email" : "Send reset link"}
+        <Button type="submit" className="w-full" disabled={isDisabled}>
+          {loading
+            ? "Sending..."
+            : cooldown > 0
+              ? `Resend in ${cooldown}s`
+              : success
+                ? "Resend link"
+                : "Send reset link"}
         </Button>
       </form>
 

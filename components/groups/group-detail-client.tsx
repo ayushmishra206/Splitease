@@ -125,13 +125,28 @@ export function GroupDetailClient({ data, currentUserId }: GroupDetailClientProp
     expensesByDate.get(key)!.push(expense);
   }
 
-  // Activity feed from server-side activity logs
-  const activities = activityLogs.map((log) => ({
-    type: log.entityType as "expense" | "settlement",
-    text: log.description,
-    userName: log.userName,
-    date: new Date(log.createdAt),
-  }));
+  // Activity feed: use activity logs if available, otherwise derive from expenses/settlements
+  const activities = activityLogs.length > 0
+    ? activityLogs.map((log) => ({
+        type: log.entityType as "expense" | "settlement",
+        text: log.description,
+        userName: log.userName,
+        date: new Date(log.createdAt),
+      }))
+    : [
+        ...expenses.map((e) => ({
+          type: "expense" as const,
+          text: `Added "${e.description}" — ${formatCurrency(e.amount, group.currency)}`,
+          userName: e.payerName,
+          date: new Date(e.createdAt),
+        })),
+        ...settlements.map((s) => ({
+          type: "settlement" as const,
+          text: `${s.fromName} settled ${formatCurrency(s.amount, group.currency)} with ${s.toName}`,
+          userName: s.fromName,
+          date: new Date(s.createdAt),
+        })),
+      ].sort((a, b) => b.date.getTime() - a.date.getTime());
 
   const tabs: { id: TabId; label: string }[] = [
     { id: "expenses", label: "Expenses" },

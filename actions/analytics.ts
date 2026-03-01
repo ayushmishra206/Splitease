@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getAuthenticatedUser } from "@/lib/auth";
 
 export type AnalyticsData = {
+  currency: string;
   monthlySpending: Array<{ month: string; total: number }>;
   categoryBreakdown: Array<{ category: string; total: number }>;
   groupComparison: Array<{ groupId: string; groupName: string; total: number }>;
@@ -23,17 +24,25 @@ export async function fetchAnalyticsData(groupId?: string): Promise<AnalyticsDat
     : memberGroupIds;
 
   if (groupIds.length === 0) {
-    return { monthlySpending: [], categoryBreakdown: [], groupComparison: [], topSpenders: [] };
+    return { currency: "USD", monthlySpending: [], categoryBreakdown: [], groupComparison: [], topSpenders: [] };
   }
 
   const expenses = await prisma.expense.findMany({
     where: { groupId: { in: groupIds } },
     include: {
-      group: { select: { id: true, name: true } },
+      group: { select: { id: true, name: true, currency: true } },
       payer: { select: { id: true, fullName: true } },
     },
     orderBy: { expenseDate: "asc" },
   });
+
+  // Determine currency: use the most common one across expenses
+  const currencyCounts = new Map<string, number>();
+  for (const e of expenses) {
+    const c = e.group.currency;
+    currencyCounts.set(c, (currencyCounts.get(c) ?? 0) + 1);
+  }
+  const currency = [...currencyCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "USD";
 
   // Monthly spending (last 6 months)
   const sixMonthsAgo = new Date();
@@ -83,5 +92,5 @@ export async function fetchAnalyticsData(groupId?: string): Promise<AnalyticsDat
     .sort((a, b) => b.total - a.total)
     .slice(0, 10);
 
-  return { monthlySpending, categoryBreakdown, groupComparison, topSpenders };
+  return { currency, monthlySpending, categoryBreakdown, groupComparison, topSpenders };
 }

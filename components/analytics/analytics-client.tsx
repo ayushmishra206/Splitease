@@ -198,7 +198,7 @@ export function AnalyticsClient({ data: initialData, groups }: AnalyticsClientPr
                     <YAxis
                       className="text-xs"
                       tick={{ fill: "currentColor", fontSize: 12 }}
-                      tickFormatter={(value: number) => formatCurrency(value).replace(".00", "")}
+                      tickFormatter={(value: number) => formatCurrency(value, data.currency).replace(".00", "")}
                     />
                     <Tooltip
                       contentStyle={{
@@ -207,7 +207,7 @@ export function AnalyticsClient({ data: initialData, groups }: AnalyticsClientPr
                         borderRadius: "0.75rem",
                         fontSize: "0.875rem",
                       }}
-                      formatter={(value) => [formatCurrency(Number(value ?? 0)), "Total"]}
+                      formatter={(value) => [formatCurrency(Number(value ?? 0), data.currency), "Total"]}
                     />
                     <Bar dataKey="total" fill="#10b981" radius={[6, 6, 0, 0]} />
                   </BarChart>
@@ -254,7 +254,7 @@ export function AnalyticsClient({ data: initialData, groups }: AnalyticsClientPr
                         borderRadius: "0.75rem",
                         fontSize: "0.875rem",
                       }}
-                      formatter={(value) => [formatCurrency(Number(value ?? 0)), "Spent"]}
+                      formatter={(value) => [formatCurrency(Number(value ?? 0), data.currency), "Spent"]}
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -302,7 +302,7 @@ export function AnalyticsClient({ data: initialData, groups }: AnalyticsClientPr
                       type="number"
                       className="text-xs"
                       tick={{ fill: "currentColor", fontSize: 12 }}
-                      tickFormatter={(value: number) => formatCurrency(value).replace(".00", "")}
+                      tickFormatter={(value: number) => formatCurrency(value, data.currency).replace(".00", "")}
                     />
                     <YAxis
                       type="category"
@@ -318,7 +318,7 @@ export function AnalyticsClient({ data: initialData, groups }: AnalyticsClientPr
                         borderRadius: "0.75rem",
                         fontSize: "0.875rem",
                       }}
-                      formatter={(value) => [formatCurrency(Number(value ?? 0)), "Total"]}
+                      formatter={(value) => [formatCurrency(Number(value ?? 0), data.currency), "Total"]}
                     />
                     <Bar dataKey="total" fill="#10b981" radius={[0, 6, 6, 0]} />
                   </BarChart>
@@ -351,7 +351,7 @@ export function AnalyticsClient({ data: initialData, groups }: AnalyticsClientPr
                       {spender.userName}
                     </span>
                     <span className="text-sm font-semibold tabular-nums">
-                      {formatCurrency(spender.total)}
+                      {formatCurrency(spender.total, data.currency)}
                     </span>
                   </div>
                 ))}
