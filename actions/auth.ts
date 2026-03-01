@@ -1,6 +1,7 @@
 "use server";
 
 import bcrypt from "bcryptjs";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { signIn as nextAuthSignIn, signOut as nextAuthSignOut } from "@/auth";
 import { AuthError } from "next-auth";
@@ -120,4 +121,25 @@ export async function changePassword(formData: FormData) {
   });
 
   return { success: "Password changed successfully" };
+}
+
+export async function updateProfile(input: { fullName: string }) {
+  const user = await getAuthenticatedUser();
+
+  const name = input.fullName.trim();
+  if (!name) {
+    return { error: "Name is required" };
+  }
+  if (name.length > 100) {
+    return { error: "Name must be 100 characters or less" };
+  }
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { fullName: name },
+  });
+
+  revalidatePath("/settings");
+  revalidatePath("/");
+  return { success: "Profile updated" };
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, Plus, Receipt, Settings } from "lucide-react";
+import { LayoutDashboard, Users, Plus, Receipt, HandCoins } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -10,7 +10,7 @@ const navItems = [
   { label: "Groups", path: "/groups", icon: Users },
   { label: "Add", path: "/expenses?create=true", icon: Plus, isCenter: true },
   { label: "Expenses", path: "/expenses", icon: Receipt },
-  { label: "Settings", path: "/settings", icon: Settings },
+  { label: "Settle", path: "/settlements", icon: HandCoins },
 ];
 
 export function MobileNav() {

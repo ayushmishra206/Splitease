@@ -120,7 +120,7 @@ export function ExpenseForm({
       groupId: defaultValues?.groupId ?? groups.filter((g) => g.status !== "archived")[0]?.id ?? "",
       description: defaultValues?.description ?? "",
       amount: defaultValues?.amount ?? (undefined as unknown as number),
-      payerId: defaultValues?.payerId ?? "",
+      payerId: defaultValues?.payerId ?? currentUserId,
       expenseDate: defaultValues?.expenseDate ?? today,
       notes: defaultValues?.notes ?? "",
     },

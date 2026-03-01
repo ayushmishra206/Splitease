@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { exportUserData, importUserData } from "@/actions/backup";
-import { changePassword, signOut } from "@/actions/auth";
+import { changePassword, updateProfile, signOut } from "@/actions/auth";
 import { subscribePush, unsubscribePush } from "@/actions/push";
 import { toast } from "sonner";
 import {
@@ -16,6 +16,9 @@ import {
   Database,
   Bell,
   LogOut,
+  Pencil,
+  Check,
+  X,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -51,8 +54,30 @@ export function SettingsClient({ profile }: SettingsClientProps) {
   const [changingPassword, setChangingPassword] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameValue, setNameValue] = useState(profile.fullName);
+  const [savingName, setSavingName] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const passwordFormRef = useRef<HTMLFormElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  const handleSaveName = async () => {
+    const trimmed = nameValue.trim();
+    if (!trimmed || trimmed === profile.fullName) {
+      setEditingName(false);
+      setNameValue(profile.fullName);
+      return;
+    }
+    setSavingName(true);
+    const result = await updateProfile({ fullName: trimmed });
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success("Name updated");
+      setEditingName(false);
+    }
+    setSavingName(false);
+  };
 
   // Check if push notifications are already subscribed on mount
   useEffect(() => {
@@ -198,7 +223,7 @@ export function SettingsClient({ profile }: SettingsClientProps) {
         </h2>
 
         {/* Profile */}
-        <Card>
+        <Card id="profile">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/30 p-1">
@@ -215,7 +240,58 @@ export function SettingsClient({ profile }: SettingsClientProps) {
                   <User className="size-3.5" />
                   Name
                 </p>
-                <p className="text-sm">{profile.fullName || "Not set"}</p>
+                {editingName ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      ref={nameInputRef}
+                      value={nameValue}
+                      onChange={(e) => setNameValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleSaveName();
+                        if (e.key === "Escape") {
+                          setEditingName(false);
+                          setNameValue(profile.fullName);
+                        }
+                      }}
+                      className="h-8 text-sm"
+                      maxLength={100}
+                      autoFocus
+                      disabled={savingName}
+                    />
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      onClick={handleSaveName}
+                      disabled={savingName}
+                      className="text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
+                    >
+                      <Check className="size-4" />
+                    </Button>
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setEditingName(false);
+                        setNameValue(profile.fullName);
+                      }}
+                      disabled={savingName}
+                    >
+                      <X className="size-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingName(true);
+                      setTimeout(() => nameInputRef.current?.focus(), 0);
+                    }}
+                    className="flex items-center gap-2 rounded-md px-2 py-1 -ml-2 text-sm transition-colors hover:bg-muted"
+                  >
+                    <span>{profile.fullName || "Not set"}</span>
+                    <Pencil className="size-3.5 text-muted-foreground" />
+                  </button>
+                )}
               </div>
               <div className="space-y-1">
                 <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">

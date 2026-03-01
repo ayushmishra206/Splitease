@@ -165,6 +165,7 @@ export async function createExpense(input: {
   });
 
   revalidatePath("/expenses");
+  revalidatePath(`/groups/${input.groupId}`);
   revalidatePath("/");
   return {
     ...expense,
@@ -257,6 +258,7 @@ export async function updateExpense(input: {
   });
 
   revalidatePath("/expenses");
+  revalidatePath(`/groups/${input.groupId}`);
   revalidatePath("/");
   return {
     ...expense,
@@ -314,5 +316,6 @@ export async function deleteExpense(id: string) {
   });
 
   revalidatePath("/expenses");
+  revalidatePath(`/groups/${expense.groupId}`);
   revalidatePath("/");
 }

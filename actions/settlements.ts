@@ -112,8 +112,9 @@ export async function createSettlement(input: {
   });
 
   revalidatePath("/settlements");
+  revalidatePath(`/groups/${input.groupId}`);
   revalidatePath("/");
-  return settlement;
+  return { ...settlement, amount: parseFloat(String(settlement.amount)) };
 }
 
 export async function updateSettlement(input: {
@@ -159,8 +160,9 @@ export async function updateSettlement(input: {
   });
 
   revalidatePath("/settlements");
+  revalidatePath(`/groups/${input.groupId}`);
   revalidatePath("/");
-  return settlement;
+  return { ...settlement, amount: parseFloat(String(settlement.amount)) };
 }
 
 export async function deleteSettlement(id: string) {
@@ -192,5 +194,6 @@ export async function deleteSettlement(id: string) {
   });
 
   revalidatePath("/settlements");
+  revalidatePath(`/groups/${settlement.groupId}`);
   revalidatePath("/");
 }
