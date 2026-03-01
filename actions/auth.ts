@@ -81,8 +81,8 @@ export async function changePassword(formData: FormData) {
   const newPassword = formData.get("newPassword") as string;
   const confirmPassword = formData.get("confirmPassword") as string;
 
-  if (!currentPassword || !newPassword) {
-    return { error: "All fields are required" };
+  if (!newPassword) {
+    return { error: "New password is required" };
   }
 
   if (newPassword.length < 6) {
@@ -98,13 +98,19 @@ export async function changePassword(formData: FormData) {
     select: { password: true },
   });
 
-  if (!dbUser || !dbUser.password) {
-    return { error: dbUser ? "Account uses Google sign-in. Password cannot be changed." : "User not found" };
+  if (!dbUser) {
+    return { error: "User not found" };
   }
 
-  const valid = await bcrypt.compare(currentPassword, dbUser.password);
-  if (!valid) {
-    return { error: "Current password is incorrect" };
+  // If user already has a password, verify the current one
+  if (dbUser.password) {
+    if (!currentPassword) {
+      return { error: "Current password is required" };
+    }
+    const valid = await bcrypt.compare(currentPassword, dbUser.password);
+    if (!valid) {
+      return { error: "Current password is incorrect" };
+    }
   }
 
   const hashedPassword = await bcrypt.hash(newPassword, 12);

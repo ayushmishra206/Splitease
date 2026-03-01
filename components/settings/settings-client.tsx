@@ -41,6 +41,7 @@ interface SettingsClientProps {
     fullName: string;
     avatarUrl: string | null;
     createdAt: Date;
+    hasPassword: boolean;
   };
 }
 
@@ -249,10 +250,12 @@ export function SettingsClient({ profile }: SettingsClientProps) {
               <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/30 p-1">
                 <Lock className="size-4 text-emerald-600 dark:text-emerald-400" />
               </div>
-              Change Password
+              {profile.hasPassword ? "Change Password" : "Set Password"}
             </CardTitle>
             <CardDescription>
-              Update your account password
+              {profile.hasPassword
+                ? "Update your account password"
+                : "Set a password to sign in with email"}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -261,16 +264,18 @@ export function SettingsClient({ profile }: SettingsClientProps) {
               onSubmit={handleChangePassword}
               className="space-y-4 max-w-sm"
             >
-              <div className="space-y-2">
-                <Label htmlFor="currentPassword">Current password</Label>
-                <Input
-                  id="currentPassword"
-                  name="currentPassword"
-                  type="password"
-                  placeholder="••••••••"
-                  required
-                />
-              </div>
+              {profile.hasPassword && (
+                <div className="space-y-2">
+                  <Label htmlFor="currentPassword">Current password</Label>
+                  <Input
+                    id="currentPassword"
+                    name="currentPassword"
+                    type="password"
+                    placeholder="••••••••"
+                    required
+                  />
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="newPassword">New password</Label>
                 <Input
@@ -295,7 +300,9 @@ export function SettingsClient({ profile }: SettingsClientProps) {
               </div>
               <Button type="submit" disabled={changingPassword}>
                 <Shield className="size-4" />
-                {changingPassword ? "Changing..." : "Change Password"}
+                {changingPassword
+                  ? (profile.hasPassword ? "Changing..." : "Setting...")
+                  : (profile.hasPassword ? "Change Password" : "Set Password")}
               </Button>
             </form>
           </CardContent>

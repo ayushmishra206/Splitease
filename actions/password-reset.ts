@@ -40,7 +40,7 @@ export async function requestPasswordReset(formData: FormData) {
   });
 
   if (recentCount >= RATE_LIMIT) {
-    return { success: successMessage };
+    return { error: "Too many reset requests. Please try again in an hour." };
   }
 
   const token = crypto.randomBytes(32).toString("hex");

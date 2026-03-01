@@ -17,6 +17,7 @@ export default async function SettingsPage() {
         fullName: profile?.fullName ?? "",
         avatarUrl: profile?.avatarUrl ?? null,
         createdAt: profile?.createdAt ?? new Date(),
+        hasPassword: !!profile?.password,
       }}
     />
   );
