@@ -98,6 +98,25 @@ export function expenseAddedEmail(
   `);
 }
 
+export function groupInviteEmail(
+  inviterName: string,
+  groupName: string,
+  inviteUrl: string
+): string {
+  return layout(`
+    <h2 style="margin:0 0 16px;color:#111827;font-size:18px;">You&rsquo;ve been invited to join <strong>${groupName}</strong></h2>
+    <p style="color:#4b5563;line-height:1.6;margin:0 0 16px;">
+      <strong>${inviterName}</strong> invited you to split expenses together on SplitEase.
+    </p>
+    <p style="margin:0 0 24px;">
+      ${button(inviteUrl, "Accept Invite")}
+    </p>
+    <p style="color:#9ca3af;font-size:13px;line-height:1.5;margin:0;">
+      This invite expires in 7 days. If you don&rsquo;t have a SplitEase account, you&rsquo;ll be able to create one.
+    </p>
+  `);
+}
+
 export function settlementRecordedEmail(
   name: string,
   amount: string,

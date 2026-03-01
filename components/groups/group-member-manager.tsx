@@ -1,16 +1,13 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
-import {
-  addGroupMember,
-  removeGroupMember,
-  searchProfiles,
-} from "@/actions/groups";
+import { removeGroupMember } from "@/actions/groups";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, UserMinus, UserPlus } from "lucide-react";
+import { Loader2, UserMinus } from "lucide-react";
 import { toast } from "sonner";
+import { InviteMembersDialog } from "@/components/groups/invite-members-dialog";
+import { PendingInvites } from "@/components/groups/pending-invites";
 
 interface Member {
   memberId: string;
@@ -20,12 +17,6 @@ interface Member {
     fullName: string | null;
     avatarUrl: string | null;
   };
-}
-
-interface SearchResult {
-  id: string;
-  fullName: string | null;
-  avatarUrl: string | null;
 }
 
 interface GroupMemberManagerProps {
@@ -43,16 +34,8 @@ export function GroupMemberManager({
   currentUserId,
   onUpdate,
 }: GroupMemberManagerProps) {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [addingId, setAddingId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
-
-  const memberIds = useMemo(
-    () => new Set(members.map((m) => m.memberId)),
-    [members]
-  );
+  const [inviteRefreshKey, setInviteRefreshKey] = useState(0);
 
   const sortedMembers = useMemo(
     () =>
@@ -63,42 +46,6 @@ export function GroupMemberManager({
       }),
     [members]
   );
-
-  const handleSearch = useCallback(
-    async (term: string) => {
-      setSearchTerm(term);
-      if (term.length < 2) {
-        setSearchResults([]);
-        return;
-      }
-      setSearching(true);
-      try {
-        const results = await searchProfiles(term);
-        setSearchResults(
-          results.filter((r) => !memberIds.has(r.id) && r.id !== currentUserId)
-        );
-      } catch {
-        toast.error("Failed to search profiles");
-      } finally {
-        setSearching(false);
-      }
-    },
-    [memberIds, currentUserId]
-  );
-
-  const handleAdd = async (userId: string) => {
-    setAddingId(userId);
-    try {
-      await addGroupMember(groupId, userId);
-      toast.success("Member added");
-      setSearchResults((prev) => prev.filter((r) => r.id !== userId));
-      onUpdate();
-    } catch {
-      toast.error("Failed to add member");
-    } finally {
-      setAddingId(null);
-    }
-  };
 
   const handleRemove = async (memberId: string) => {
     setRemovingId(memberId);
@@ -112,6 +59,10 @@ export function GroupMemberManager({
       setRemovingId(null);
     }
   };
+
+  const handleInviteSent = useCallback(() => {
+    setInviteRefreshKey((k) => k + 1);
+  }, []);
 
   const getInitial = (name: string | null) => {
     return name ? name.charAt(0).toUpperCase() : "?";
@@ -164,63 +115,23 @@ export function GroupMemberManager({
         </div>
       </div>
 
-      {/* Search and add */}
+      {/* Pending invites */}
+      <PendingInvites groupId={groupId} refreshKey={inviteRefreshKey} />
+
+      {/* Invite by email */}
       <div className="space-y-3">
         <h4 className="text-sm font-medium text-muted-foreground">
-          Add Members
+          Invite Members
         </h4>
-        <Input
-          placeholder="Search by name (min 2 characters)..."
-          value={searchTerm}
-          onChange={(e) => handleSearch(e.target.value)}
+        <InviteMembersDialog
+          groupId={groupId}
+          onInviteSent={handleInviteSent}
+          trigger={
+            <Button variant="outline" className="w-full">
+              Invite by Email
+            </Button>
+          }
         />
-
-        {searching && (
-          <div className="flex items-center justify-center py-4">
-            <Loader2 className="size-5 animate-spin text-muted-foreground" />
-          </div>
-        )}
-
-        {!searching && searchResults.length > 0 && (
-          <div className="space-y-2">
-            {searchResults.map((profile) => (
-              <div
-                key={profile.id}
-                className="flex items-center justify-between rounded-lg border p-3"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium">
-                    {getInitial(profile.fullName)}
-                  </div>
-                  <span className="text-sm font-medium">
-                    {profile.fullName ?? "Unknown"}
-                  </span>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleAdd(profile.id)}
-                  disabled={addingId === profile.id}
-                >
-                  {addingId === profile.id ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <>
-                      <UserPlus className="size-4" />
-                      Add
-                    </>
-                  )}
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {!searching && searchTerm.length >= 2 && searchResults.length === 0 && (
-          <p className="py-2 text-center text-sm text-muted-foreground">
-            No results found
-          </p>
-        )}
       </div>
     </div>
   );
