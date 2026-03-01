@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { exportUserData, importUserData } from "@/actions/backup";
-import { changePassword } from "@/actions/auth";
+import { changePassword, signOut } from "@/actions/auth";
 import { subscribePush, unsubscribePush } from "@/actions/push";
 import { toast } from "sonner";
 import {
@@ -15,6 +15,7 @@ import {
   Palette,
   Database,
   Bell,
+  LogOut,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -62,6 +63,15 @@ export function SettingsClient({ profile }: SettingsClientProps) {
     });
   }, []);
 
+  const urlBase64ToUint8Array = useCallback((base64String: string) => {
+    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const raw = atob(base64);
+    const arr = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+    return arr;
+  }, []);
+
   const handlePushToggle = useCallback(async (enabled: boolean) => {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
       toast.error("Push notifications are not supported in this browser");
@@ -83,7 +93,7 @@ export function SettingsClient({ profile }: SettingsClientProps) {
 
         const sub = await reg.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+          applicationServerKey: urlBase64ToUint8Array(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!),
         });
 
         const json = sub.toJSON();
@@ -113,7 +123,7 @@ export function SettingsClient({ profile }: SettingsClientProps) {
     } finally {
       setPushLoading(false);
     }
-  }, []);
+  }, [urlBase64ToUint8Array]);
 
   const handleChangePassword = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -417,6 +427,17 @@ export function SettingsClient({ profile }: SettingsClientProps) {
             </div>
           </CardContent>
         </Card>
+      </section>
+
+      {/* ── Sign Out (visible on mobile) ── */}
+      <section className="space-y-4 md:hidden">
+        <Separator />
+        <form action={signOut}>
+          <Button variant="outline" className="w-full text-red-500 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20">
+            <LogOut className="size-4" />
+            Sign out
+          </Button>
+        </form>
       </section>
     </div>
   );
