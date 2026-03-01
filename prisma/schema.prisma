@@ -24,6 +24,9 @@ model User {
   expenseSplits     ExpenseSplit[]
   settlementsFrom   Settlement[]   @relation("SettlementFrom")
   settlementsTo     Settlement[]   @relation("SettlementTo")
+  passwordChangedAt DateTime? @map("password_changed_at") @db.Timestamptz(6)
+  authProvider      String    @default("credentials") @map("auth_provider") @db.VarChar(20)
+
   resetTokens       PasswordResetToken[]
   pushSubscriptions PushSubscription[]
   activityLogs      ActivityLog[]
@@ -132,6 +135,7 @@ model Settlement {
 model PasswordResetToken {
   id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId    String    @map("user_id") @db.Uuid
+  /// Stores SHA-256 hash of the token, not the raw value
   token     String    @unique
   expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
   usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
@@ -201,4 +205,15 @@ model GroupInvite {
   @@index([email])
   @@index([groupId, status])
   @@map("group_invites")
+}
+
+model RateLimitAttempt {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email     String
+  ipAddress String?  @map("ip_address")
+  type      String   @db.VarChar(20) // "login" | "signup"
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([email, ipAddress, type, createdAt])
+  @@map("rate_limit_attempts")
 }

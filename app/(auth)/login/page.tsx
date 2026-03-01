@@ -16,6 +16,7 @@ export default function LoginPage() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/";
+  const oauthError = searchParams.get("error");
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -42,6 +43,12 @@ export default function LoginPage() {
           Sign in to your account to continue
         </p>
       </div>
+
+      {oauthError === "OAuthAccountNotLinked" && (
+        <div className="rounded-lg bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
+          An account with this email already exists. Please sign in with your password.
+        </div>
+      )}
 
       <Button
         variant="outline"

@@ -10,6 +10,10 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL!;
 const RATE_LIMIT = 3; // max tokens per hour
 const TOKEN_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
 
+function hashToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
 export async function requestPasswordReset(formData: FormData) {
   const email = (formData.get("email") as string)?.trim().toLowerCase();
 
@@ -43,18 +47,19 @@ export async function requestPasswordReset(formData: FormData) {
     return { error: "Too many reset requests. Please try again in an hour." };
   }
 
-  const token = crypto.randomBytes(32).toString("hex");
+  const rawToken = crypto.randomBytes(32).toString("hex");
+  const tokenHash = hashToken(rawToken);
   const expiresAt = new Date(Date.now() + TOKEN_EXPIRY_MS);
 
   await prisma.passwordResetToken.create({
     data: {
       userId: user.id,
-      token,
+      token: tokenHash,
       expiresAt,
     },
   });
 
-  const resetUrl = `${APP_URL}/reset-password?token=${token}`;
+  const resetUrl = `${APP_URL}/reset-password?token=${rawToken}`;
   try {
     await sendEmail(
       user.email,
@@ -86,8 +91,9 @@ export async function resetPassword(formData: FormData) {
     return { error: "Passwords do not match" };
   }
 
+  const tokenHash = hashToken(token);
   const resetToken = await prisma.passwordResetToken.findUnique({
-    where: { token },
+    where: { token: tokenHash },
     select: { id: true, userId: true, expiresAt: true, usedAt: true },
   });
 
@@ -103,12 +109,13 @@ export async function resetPassword(formData: FormData) {
     return { error: "This reset link has expired. Please request a new one." };
   }
 
-  const hashedPassword = await bcrypt.hash(password, 12);
+  const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS ?? "12", 10);
+  const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
   await prisma.$transaction([
     prisma.user.update({
       where: { id: resetToken.userId },
-      data: { password: hashedPassword },
+      data: { password: hashedPassword, passwordChangedAt: new Date() },
     }),
     prisma.passwordResetToken.update({
       where: { id: resetToken.id },
