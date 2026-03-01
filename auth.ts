@@ -4,7 +4,7 @@ import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { authConfig } from "@/lib/auth.config";
-import { sendEmail } from "@/lib/email/send";
+import { sendEmailSafe } from "@/lib/email/send";
 import { welcomeEmail } from "@/lib/email/templates";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -51,7 +51,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               avatarUrl: user.image ?? null,
             },
           });
-          void sendEmail(
+          sendEmailSafe(
             user.email,
             "Welcome to SplitEase!",
             welcomeEmail(user.name ?? "there")

@@ -63,7 +63,7 @@ export function GroupDetailClient({ data, currentUserId }: GroupDetailClientProp
   const [settleAmount, setSettleAmount] = useState("");
   const [settleNotes, setSettleNotes] = useState("");
   const [settling, setSettling] = useState(false);
-  const { group, members, expenses, settlements } = data;
+  const { group, members, expenses, settlements, activityLogs } = data;
 
   const memberNames = members.map((m) => m.fullName);
 
@@ -125,19 +125,13 @@ export function GroupDetailClient({ data, currentUserId }: GroupDetailClientProp
     expensesByDate.get(key)!.push(expense);
   }
 
-  // Activity feed
-  const activities = [
-    ...expenses.map((e) => ({
-      type: "expense" as const,
-      text: `${e.payerId === currentUserId ? "You" : e.payerName} added "${e.description}" — ${formatCurrency(e.amount, group.currency)}`,
-      date: new Date(e.createdAt),
-    })),
-    ...settlements.map((s) => ({
-      type: "settlement" as const,
-      text: `${s.fromMember === currentUserId ? "You" : s.fromName} settled ${formatCurrency(s.amount, group.currency)} with ${s.toMember === currentUserId ? "you" : s.toName}`,
-      date: new Date(s.createdAt),
-    })),
-  ].sort((a, b) => b.date.getTime() - a.date.getTime());
+  // Activity feed from server-side activity logs
+  const activities = activityLogs.map((log) => ({
+    type: log.entityType as "expense" | "settlement",
+    text: log.description,
+    userName: log.userName,
+    date: new Date(log.createdAt),
+  }));
 
   const tabs: { id: TabId; label: string }[] = [
     { id: "expenses", label: "Expenses" },
@@ -376,12 +370,12 @@ export function GroupDetailClient({ data, currentUserId }: GroupDetailClientProp
               <div key={i} className="flex items-start gap-3 py-2">
                 <div className={cn(
                   "mt-1 h-2 w-2 rounded-full shrink-0",
-                  activity.type === "expense" ? "bg-emerald-500" : "bg-green-500"
+                  activity.type === "expense" ? "bg-emerald-500" : "bg-blue-500"
                 )} />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm">{activity.text}</p>
                   <p className="text-xs text-muted-foreground">
-                    {formatDistanceToNow(activity.date, { addSuffix: true })}
+                    {activity.userName} &middot; {formatDistanceToNow(activity.date, { addSuffix: true })}
                   </p>
                 </div>
               </div>

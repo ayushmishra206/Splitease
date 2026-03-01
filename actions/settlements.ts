@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getAuthenticatedUser } from "@/lib/auth";
-import { sendEmail } from "@/lib/email/send";
+import { sendEmailSafe } from "@/lib/email/send";
 import { settlementRecordedEmail } from "@/lib/email/templates";
 import { sendPushNotification } from "@/lib/push";
 
@@ -79,14 +79,14 @@ export async function createSettlement(input: {
   ]);
 
   if (fromUser?.email) {
-    void sendEmail(
+    sendEmailSafe(
       fromUser.email,
       `Settlement in ${groupName}`,
       settlementRecordedEmail(fromName, amountStr, currency, groupName, fromName, toName)
     );
   }
   if (toUser?.email) {
-    void sendEmail(
+    sendEmailSafe(
       toUser.email,
       `Settlement in ${groupName}`,
       settlementRecordedEmail(toName, amountStr, currency, groupName, fromName, toName)
@@ -108,6 +108,17 @@ export async function createSettlement(input: {
       url: `/groups/${input.groupId}`,
     });
   }
+
+  // Log activity
+  void prisma.activityLog.create({
+    data: {
+      groupId: input.groupId,
+      userId: user.id,
+      action: "created",
+      entityType: "settlement",
+      description: `${fromName} settled ${amountStr} ${currency} with ${toName}`,
+    },
+  });
 
   revalidatePath("/settlements");
   revalidatePath("/");

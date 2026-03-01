@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getAuthenticatedUser } from "@/lib/auth";
-import { sendEmail } from "@/lib/email/send";
+import { sendEmailSafe } from "@/lib/email/send";
 import { addedToGroupEmail } from "@/lib/email/templates";
 
 export async function fetchGroups() {
@@ -68,7 +68,7 @@ export async function createGroup(input: {
         select: { email: true },
       });
       if (memberEmail?.email) {
-        void sendEmail(
+        sendEmailSafe(
           memberEmail.email,
           `You've been added to ${group.name}`,
           addedToGroupEmail(gm.member.fullName ?? "there", group.name, creatorName)
@@ -146,7 +146,7 @@ export async function addGroupMember(groupId: string, memberId: string) {
       select: { fullName: true },
     }))?.fullName ?? "Someone";
 
-    void sendEmail(
+    sendEmailSafe(
       member.member.email,
       `You've been added to ${group.name}`,
       addedToGroupEmail(member.member.fullName ?? "there", group.name, adderName)

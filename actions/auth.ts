@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { signIn as nextAuthSignIn, signOut as nextAuthSignOut } from "@/auth";
 import { AuthError } from "next-auth";
 import { getAuthenticatedUser } from "@/lib/auth";
-import { sendEmail } from "@/lib/email/send";
+import { sendEmailSafe } from "@/lib/email/send";
 import { welcomeEmail } from "@/lib/email/templates";
 
 export async function signIn(formData: FormData) {
@@ -54,7 +54,7 @@ export async function signUp(formData: FormData) {
     },
   });
 
-  void sendEmail(email, "Welcome to SplitEase!", welcomeEmail(fullName));
+  sendEmailSafe(email, "Welcome to SplitEase!", welcomeEmail(fullName));
 
   try {
     await nextAuthSignIn("credentials", {

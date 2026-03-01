@@ -65,9 +65,9 @@ export async function fetchDashboardData(): Promise<DashboardData> {
   // Fetch everything in parallel — groups, balance data, recent expenses, counts
   const [groups, expenseSplits, settlements, recentExpenses, expenseCount, settlementCount] =
     await Promise.all([
-      // Groups with member names
+      // Groups with member names — active only
       prisma.group.findMany({
-        where: { id: { in: groupIds } },
+        where: { id: { in: groupIds }, status: "active" },
         select: {
           id: true,
           name: true,
@@ -88,6 +88,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
               groupId: true,
               payerId: true,
               amount: true,
+              createdAt: true,
             },
           },
         },
@@ -210,25 +211,25 @@ export async function fetchDashboardData(): Promise<DashboardData> {
       else totalYouOwe += Math.abs(b.amount);
     }
 
-    // Last activity
-    const lastSettlement = groupSettlements.length > 0
-      ? groupSettlements.reduce((latest, s) =>
-          new Date(s.createdAt) > new Date(latest.createdAt) ? s : latest
-        )
-      : null;
+    // Last activity — computed from all expenses and settlements in this group
+    let lastActivityTime = 0;
 
-    // Find most recent expense date from recentExpenses if it's in this group
-    const lastExpenseInGroup = recentExpenses.find((e) => e.groupId === group.id);
-    const lastActivity = lastExpenseInGroup?.createdAt
-      ? lastSettlement?.createdAt
-        ? new Date(Math.max(
-            new Date(lastExpenseInGroup.createdAt).getTime(),
-            new Date(lastSettlement.createdAt).getTime(),
-          ))
-        : new Date(lastExpenseInGroup.createdAt)
-      : lastSettlement?.createdAt
-        ? new Date(lastSettlement.createdAt)
-        : null;
+    // Check latest expense from splits data (covers all expenses, not just top 5)
+    const seenExpenseTimestamps = new Set<number>();
+    for (const split of groupSplits) {
+      const ts = new Date(split.expense.createdAt).getTime();
+      if (!seenExpenseTimestamps.has(ts)) {
+        seenExpenseTimestamps.add(ts);
+        if (ts > lastActivityTime) lastActivityTime = ts;
+      }
+    }
+
+    for (const settlement of groupSettlements) {
+      const ts = new Date(settlement.createdAt).getTime();
+      if (ts > lastActivityTime) lastActivityTime = ts;
+    }
+
+    const lastActivity = lastActivityTime > 0 ? new Date(lastActivityTime) : null;
 
     groupSummaries.push({
       id: group.id,
@@ -240,6 +241,13 @@ export async function fetchDashboardData(): Promise<DashboardData> {
       lastActivity,
     });
   }
+
+  // Sort groups by most recent activity first
+  groupSummaries.sort((a, b) => {
+    const aTime = a.lastActivity?.getTime() ?? 0;
+    const bTime = b.lastActivity?.getTime() ?? 0;
+    return bTime - aTime;
+  });
 
   // Determine primary currency (most common among groups)
   const currencyCounts: Record<string, number> = {};

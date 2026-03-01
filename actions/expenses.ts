@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getAuthenticatedUser } from "@/lib/auth";
-import { sendEmail } from "@/lib/email/send";
+import { sendEmailSafe } from "@/lib/email/send";
 import { expenseAddedEmail } from "@/lib/email/templates";
 import { sendPushNotification } from "@/lib/push";
 
@@ -90,6 +90,7 @@ export async function createExpense(input: {
       category: input.category,
       splitType: input.splitType ?? "equal",
       payerId: input.payerId,
+      createdById: user.id,
       expenseDate: new Date(input.expenseDate),
       notes: input.notes,
       receiptUrl: input.receiptUrl,
@@ -124,7 +125,7 @@ export async function createExpense(input: {
   });
   for (const gm of groupMembers) {
     if (gm.member.id === input.payerId) continue;
-    void sendEmail(
+    sendEmailSafe(
       gm.member.email,
       `New expense in ${expense.group.name}`,
       expenseAddedEmail(
@@ -156,6 +157,17 @@ export async function createExpense(input: {
     });
   }
 
+  // Log activity
+  void prisma.activityLog.create({
+    data: {
+      groupId: input.groupId,
+      userId: user.id,
+      action: "created",
+      entityType: "expense",
+      description: `Added "${expense.description}" — ${parseFloat(String(expense.amount)).toFixed(2)} ${expense.group.currency}`,
+    },
+  });
+
   revalidatePath("/expenses");
   revalidatePath("/");
   return {
@@ -183,10 +195,14 @@ export async function updateExpense(input: {
 }) {
   const user = await getAuthenticatedUser();
 
-  const membership = await prisma.groupMember.findUnique({
-    where: { groupId_memberId: { groupId: input.groupId, memberId: user.id } },
+  const existing = await prisma.expense.findUnique({
+    where: { id: input.id },
+    select: { createdById: true, payerId: true },
   });
-  if (!membership) throw new Error("Not a member of this group");
+  if (!existing) throw new Error("Expense not found");
+
+  const isCreator = existing.createdById === user.id || existing.payerId === user.id;
+  if (!isCreator) throw new Error("Only the expense creator can edit this expense");
 
   const expense = await prisma.$transaction(async (tx) => {
     await tx.expenseSplit.deleteMany({ where: { expenseId: input.id } });
@@ -222,6 +238,17 @@ export async function updateExpense(input: {
     });
   });
 
+  // Log activity
+  void prisma.activityLog.create({
+    data: {
+      groupId: input.groupId,
+      userId: user.id,
+      action: "updated",
+      entityType: "expense",
+      description: `Updated "${expense.description}" — ${parseFloat(String(expense.amount)).toFixed(2)} ${expense.group.currency}`,
+    },
+  });
+
   revalidatePath("/expenses");
   revalidatePath("/");
   return {
@@ -239,12 +266,30 @@ export async function deleteExpense(id: string) {
 
   const expense = await prisma.expense.findUnique({
     where: { id },
-    include: { group: { include: { members: true } } },
+    select: {
+      createdById: true,
+      payerId: true,
+      groupId: true,
+      description: true,
+      amount: true,
+      group: { select: { currency: true } },
+    },
   });
   if (!expense) throw new Error("Expense not found");
 
-  const isMember = expense.group.members.some((m) => m.memberId === user.id);
-  if (!isMember) throw new Error("Not authorized");
+  const isCreator = expense.createdById === user.id || expense.payerId === user.id;
+  if (!isCreator) throw new Error("Only the expense creator can delete this expense");
+
+  // Log activity before deleting
+  await prisma.activityLog.create({
+    data: {
+      groupId: expense.groupId,
+      userId: user.id,
+      action: "deleted",
+      entityType: "expense",
+      description: `Deleted "${expense.description}" — ${parseFloat(String(expense.amount)).toFixed(2)} ${expense.group.currency}`,
+    },
+  });
 
   await prisma.expense.delete({ where: { id } });
   revalidatePath("/expenses");

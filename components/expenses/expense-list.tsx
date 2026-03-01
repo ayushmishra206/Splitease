@@ -327,7 +327,7 @@ export function ExpenseList({ initialExpenses, initialNextCursor, groups, curren
             <div className="flex items-center gap-2">
               <Filter className="size-4 text-muted-foreground" />
               <Select value={filterGroupId} onValueChange={setFilterGroupId}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-full sm:w-[180px]">
                   <SelectValue placeholder="Filter by group" />
                 </SelectTrigger>
                 <SelectContent>
@@ -362,7 +362,7 @@ export function ExpenseList({ initialExpenses, initialNextCursor, groups, curren
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <Select value={filterCategory} onValueChange={setFilterCategory}>
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger className="w-full sm:w-[160px]">
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>
@@ -376,12 +376,12 @@ export function ExpenseList({ initialExpenses, initialNextCursor, groups, curren
                 )}
               </SelectContent>
             </Select>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Input
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="w-[140px]"
+                className="w-[calc(50%-16px)] sm:w-[140px]"
                 placeholder="From"
               />
               <span className="text-sm text-muted-foreground">to</span>
@@ -389,7 +389,7 @@ export function ExpenseList({ initialExpenses, initialNextCursor, groups, curren
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="w-[140px]"
+                className="w-[calc(50%-16px)] sm:w-[140px]"
                 placeholder="To"
               />
             </div>
@@ -508,25 +508,27 @@ export function ExpenseList({ initialExpenses, initialNextCursor, groups, curren
                       </p>
                     )}
 
-                    {/* Actions */}
-                    <div className="flex items-center gap-2 pt-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setEditExpense(expense)}
-                      >
-                        <Pencil className="size-3.5" />
-                        Edit
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        className="ml-auto"
-                        onClick={() => setDeleteTarget(expense)}
-                      >
-                        <Trash2 className="size-3.5 text-red-500 dark:text-red-400" />
-                      </Button>
-                    </div>
+                    {/* Actions — only visible to expense creator/payer */}
+                    {isPayer && (
+                      <div className="flex items-center gap-2 pt-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setEditExpense(expense)}
+                        >
+                          <Pencil className="size-3.5" />
+                          Edit
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          className="ml-auto"
+                          onClick={() => setDeleteTarget(expense)}
+                        >
+                          <Trash2 className="size-3.5 text-red-500 dark:text-red-400" />
+                        </Button>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               );

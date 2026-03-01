@@ -9,22 +9,31 @@ import { Label } from "@/components/ui/label";
 
 export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setLoading(true);
-    setMessage(null);
-
     const formData = new FormData(e.currentTarget);
-    const result = await requestPasswordReset(formData);
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
 
-    if (result.error) {
-      setMessage(result.error);
-    } else if (result.success) {
-      setMessage(result.success);
+    try {
+      const result = await requestPasswordReset(formData);
+
+      if (result.error) {
+        setError(result.error);
+      } else if (result.success) {
+        setSuccess(result.success);
+        setSent(true);
+      }
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   return (
@@ -36,9 +45,15 @@ export default function ForgotPasswordPage() {
         </p>
       </div>
 
-      {message && (
+      {error && (
+        <div className="rounded-lg bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
+          {error}
+        </div>
+      )}
+
+      {success && (
         <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 p-3 text-sm text-emerald-700 dark:text-emerald-300">
-          {message}
+          {success}
         </div>
       )}
 
@@ -51,10 +66,11 @@ export default function ForgotPasswordPage() {
             type="email"
             placeholder="you@example.com"
             required
+            disabled={sent}
           />
         </div>
-        <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? "Sending..." : "Send reset link"}
+        <Button type="submit" className="w-full" disabled={loading || sent}>
+          {loading ? "Sending..." : sent ? "Link sent — check your email" : "Send reset link"}
         </Button>
       </form>
 

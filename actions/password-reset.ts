@@ -55,11 +55,16 @@ export async function requestPasswordReset(formData: FormData) {
   });
 
   const resetUrl = `${APP_URL}/reset-password?token=${token}`;
-  void sendEmail(
-    user.email,
-    "Reset your SplitEase password",
-    passwordResetEmail(user.fullName ?? "there", resetUrl)
-  );
+  try {
+    await sendEmail(
+      user.email,
+      "Reset your SplitEase password",
+      passwordResetEmail(user.fullName ?? "there", resetUrl)
+    );
+  } catch (err) {
+    console.error("Password reset email failed:", err);
+    return { error: "Failed to send email. Please try again later." };
+  }
 
   return { success: successMessage };
 }

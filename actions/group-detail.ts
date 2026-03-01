@@ -45,13 +45,20 @@ export type GroupDetailData = {
     notes: string | null;
     createdAt: Date;
   }>;
+  activityLogs: Array<{
+    action: string;
+    entityType: string;
+    description: string;
+    userName: string;
+    createdAt: Date;
+  }>;
 };
 
 export async function fetchGroupDetail(groupId: string): Promise<GroupDetailData> {
   const user = await getAuthenticatedUser();
 
-  // Fetch group + membership check + all data in parallel (4 queries → 1 round-trip)
-  const [group, members, expenses, settlements] = await Promise.all([
+  // Fetch group + membership check + all data in parallel
+  const [group, members, expenses, settlements, activityLogs] = await Promise.all([
     prisma.group.findUniqueOrThrow({
       where: { id: groupId },
       select: { id: true, name: true, description: true, currency: true, ownerId: true, status: true },
@@ -75,6 +82,12 @@ export async function fetchGroupDetail(groupId: string): Promise<GroupDetailData
         to: { select: { id: true, fullName: true } },
       },
       orderBy: { createdAt: "desc" },
+    }),
+    prisma.activityLog.findMany({
+      where: { groupId },
+      include: { user: { select: { fullName: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 50,
     }),
   ]);
 
@@ -116,6 +129,13 @@ export async function fetchGroupDetail(groupId: string): Promise<GroupDetailData
       settlementDate: s.settlementDate,
       notes: s.notes,
       createdAt: s.createdAt,
+    })),
+    activityLogs: activityLogs.map((a) => ({
+      action: a.action,
+      entityType: a.entityType,
+      description: a.description,
+      userName: a.user.fullName ?? "Unknown",
+      createdAt: a.createdAt,
     })),
   };
 }

@@ -6,19 +6,68 @@ import { getAuthenticatedUser } from "@/lib/auth";
 export async function exportUserData() {
   const user = await getAuthenticatedUser();
 
+  // Get all groups the user is a member of (not just owned)
+  const memberships = await prisma.groupMember.findMany({
+    where: { memberId: user.id },
+    select: { groupId: true },
+  });
+  const groupIds = memberships.map((m) => m.groupId);
+
   const groups = await prisma.group.findMany({
-    where: { ownerId: user.id },
+    where: { id: { in: groupIds } },
     include: {
-      members: true,
-      expenses: { include: { splits: true } },
-      settlements: true,
+      members: { include: { member: { select: { fullName: true, email: true } } } },
+      expenses: {
+        include: {
+          payer: { select: { fullName: true } },
+          splits: { include: { member: { select: { fullName: true } } } },
+        },
+        orderBy: { expenseDate: "desc" },
+      },
+      settlements: {
+        include: {
+          from: { select: { fullName: true } },
+          to: { select: { fullName: true } },
+        },
+        orderBy: { settlementDate: "desc" },
+      },
     },
   });
 
+  const dbUser = await prisma.user.findUniqueOrThrow({
+    where: { id: user.id },
+    select: { fullName: true, email: true },
+  });
+
   return {
-    version: 1,
     exportedAt: new Date().toISOString(),
-    groups,
+    user: { name: dbUser.fullName ?? "Unknown", email: dbUser.email },
+    groups: groups.map((g) => ({
+      name: g.name,
+      description: g.description,
+      currency: g.currency,
+      status: g.status,
+      members: g.members.map((m) => m.member.fullName ?? m.member.email),
+      expenses: g.expenses.map((e) => ({
+        description: e.description,
+        amount: parseFloat(String(e.amount)),
+        paidBy: e.payer?.fullName ?? "Unknown",
+        date: e.expenseDate.toISOString().split("T")[0],
+        category: e.category,
+        notes: e.notes,
+        splitBetween: e.splits.map((s) => ({
+          name: s.member.fullName ?? "Unknown",
+          share: parseFloat(String(s.share)),
+        })),
+      })),
+      settlements: g.settlements.map((s) => ({
+        from: s.from.fullName ?? "Unknown",
+        to: s.to.fullName ?? "Unknown",
+        amount: parseFloat(String(s.amount)),
+        date: s.settlementDate.toISOString().split("T")[0],
+        notes: s.notes,
+      })),
+    })),
   };
 }
 
