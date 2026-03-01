@@ -82,7 +82,7 @@ export function SettingsClient({ profile }: SettingsClientProps) {
   // Check if push notifications are already subscribed on mount
   useEffect(() => {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
-    navigator.serviceWorker.getRegistration("/sw.js").then(async (reg) => {
+    navigator.serviceWorker.getRegistration().then(async (reg) => {
       if (!reg) return;
       const sub = await reg.pushManager.getSubscription();
       if (sub) setPushEnabled(true);
@@ -114,8 +114,8 @@ export function SettingsClient({ profile }: SettingsClientProps) {
           return;
         }
 
-        const reg = await navigator.serviceWorker.register("/sw.js");
-        await navigator.serviceWorker.ready;
+        await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+        const reg = await navigator.serviceWorker.ready;
 
         const sub = await reg.pushManager.subscribe({
           userVisibleOnly: true,
@@ -132,7 +132,7 @@ export function SettingsClient({ profile }: SettingsClientProps) {
         setPushEnabled(true);
         toast.success("Push notifications enabled");
       } else {
-        const reg = await navigator.serviceWorker.getRegistration("/sw.js");
+        const reg = await navigator.serviceWorker.getRegistration();
         if (reg) {
           const sub = await reg.pushManager.getSubscription();
           if (sub) {

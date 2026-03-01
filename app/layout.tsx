@@ -18,9 +18,15 @@ export const metadata: Metadata = {
   title: "SplitEase",
   description:
     "SplitEase helps you track shared expenses, settle balances, and stay organized with friends and family.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "SplitEase",
+  },
   icons: {
     icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
-    apple: "/favicon.svg",
+    apple: "/icon-192.png",
   },
 };
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Bell, X } from "lucide-react";
+import { Bell, Share, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { subscribePush } from "@/actions/push";
@@ -16,22 +16,47 @@ function urlBase64ToUint8Array(base64String: string) {
 }
 
 const DISMISS_KEY = "push-prompt-dismissed";
+const IOS_INSTALL_DISMISS_KEY = "ios-install-prompt-dismissed";
+
+function isIOS() {
+  if (typeof navigator === "undefined") return false;
+  return /iPhone|iPad|iPod/.test(navigator.userAgent);
+}
+
+function isStandalone() {
+  if (typeof window === "undefined") return false;
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    ("standalone" in navigator && (navigator as { standalone?: boolean }).standalone === true)
+  );
+}
 
 export function PushPrompt() {
   const [visible, setVisible] = useState(false);
+  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Don't show if browser doesn't support push
     if (typeof window === "undefined") return;
+
+    // iOS Safari but NOT installed as PWA — show "Add to Home Screen" prompt
+    if (isIOS() && !isStandalone()) {
+      if (!localStorage.getItem(IOS_INSTALL_DISMISS_KEY)) {
+        setShowInstallPrompt(true);
+      }
+      return;
+    }
+
+    // Don't show if browser doesn't support push
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    if (!("Notification" in window)) return;
 
     // Don't show if already dismissed
     if (localStorage.getItem(DISMISS_KEY)) return;
 
     // Don't show if permission already granted and subscription exists
     if (Notification.permission === "granted") {
-      navigator.serviceWorker.getRegistration("/sw.js").then(async (reg) => {
+      navigator.serviceWorker.getRegistration().then(async (reg) => {
         if (!reg) {
           setVisible(true);
           return;
@@ -59,8 +84,8 @@ export function PushPrompt() {
         return;
       }
 
-      const reg = await navigator.serviceWorker.register("/sw.js");
-      await navigator.serviceWorker.ready;
+      await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+      const reg = await navigator.serviceWorker.ready;
 
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
@@ -89,6 +114,40 @@ export function PushPrompt() {
     localStorage.setItem(DISMISS_KEY, "1");
     setVisible(false);
   }, []);
+
+  const handleDismissInstall = useCallback(() => {
+    localStorage.setItem(IOS_INSTALL_DISMISS_KEY, "1");
+    setShowInstallPrompt(false);
+  }, []);
+
+  // iOS "Add to Home Screen" prompt
+  if (showInstallPrompt) {
+    return (
+      <div className="mx-auto mb-4 w-full max-w-5xl px-4 sm:px-6">
+        <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 dark:border-blue-800 dark:bg-blue-950/30">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/50 mt-0.5">
+            <Share className="size-4 text-blue-600 dark:text-blue-400" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+              Install SplitEase for notifications
+            </p>
+            <p className="text-xs text-blue-700 dark:text-blue-400 mt-0.5">
+              Tap the share button <span className="inline-block align-text-bottom"><Share className="inline size-3" /></span> in
+              Safari, then &ldquo;Add to Home Screen&rdquo; to enable push notifications
+            </p>
+          </div>
+          <button
+            onClick={handleDismissInstall}
+            className="shrink-0 rounded-md p-1 text-blue-600 hover:bg-blue-100 dark:text-blue-400 dark:hover:bg-blue-900/50"
+            aria-label="Dismiss"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!visible) return null;
 
