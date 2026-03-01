@@ -33,21 +33,24 @@ async function checkRateLimit(
 ): Promise<boolean> {
   const windowStart = new Date(Date.now() - windowMs);
 
-  // Clean up stale records older than 24 hours
+  // Clean up stale records older than 24 hours (fire-and-forget)
   prisma.rateLimitAttempt.deleteMany({
-    where: { email, createdAt: { lt: new Date(Date.now() - STALE_ATTEMPT_MS) } },
-  }).catch(() => {}); // fire-and-forget cleanup
+    where: { createdAt: { lt: new Date(Date.now() - STALE_ATTEMPT_MS) } },
+  }).catch(() => {});
 
-  const count = await prisma.rateLimitAttempt.count({
-    where: {
-      email,
-      ipAddress: ip,
-      type,
-      createdAt: { gte: windowStart },
-    },
-  });
+  // Rate limit by email OR IP independently to prevent bypasses:
+  // - By email: prevents distributed brute-force from multiple IPs against one account
+  // - By IP: prevents one IP from spraying attempts across multiple accounts
+  const [emailCount, ipCount] = await Promise.all([
+    prisma.rateLimitAttempt.count({
+      where: { email, type, createdAt: { gte: windowStart } },
+    }),
+    prisma.rateLimitAttempt.count({
+      where: { ipAddress: ip, type, createdAt: { gte: windowStart } },
+    }),
+  ]);
 
-  return count >= limit;
+  return emailCount >= limit || ipCount >= limit;
 }
 
 async function recordAttempt(email: string, ip: string, type: "login" | "signup"): Promise<void> {
@@ -108,6 +111,8 @@ export async function signUp(formData: FormData) {
     return { error: "Too many signup attempts. Please try again later." };
   }
 
+  // Record attempt before checking user existence to prevent email enumeration
+  // via timing differences between "exists" and "doesn't exist" responses
   await recordAttempt(email, ip, "signup");
 
   const existing = await prisma.user.findUnique({ where: { email } });

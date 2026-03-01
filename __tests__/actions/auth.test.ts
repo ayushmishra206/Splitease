@@ -58,8 +58,18 @@ describe("signIn", () => {
     expect(result).toEqual({ error: "Email and password are required" });
   });
 
-  it("returns rate limit error after too many attempts", async () => {
-    mockPrisma.rateLimitAttempt.count.mockResolvedValue(5);
+  it("returns rate limit error when email count exceeds limit", async () => {
+    // First call is email count, second is IP count
+    mockPrisma.rateLimitAttempt.count.mockResolvedValueOnce(5).mockResolvedValueOnce(0);
+
+    const result = await signIn(makeFormData({ email: "test@test.com", password: "abc123" }));
+    expect(result).toEqual({ error: "Too many login attempts. Please try again later." });
+    expect(mockSignIn).not.toHaveBeenCalled();
+  });
+
+  it("returns rate limit error when IP count exceeds limit", async () => {
+    // Email count under limit, but IP count exceeds
+    mockPrisma.rateLimitAttempt.count.mockResolvedValueOnce(0).mockResolvedValueOnce(5);
 
     const result = await signIn(makeFormData({ email: "test@test.com", password: "abc123" }));
     expect(result).toEqual({ error: "Too many login attempts. Please try again later." });
@@ -134,7 +144,8 @@ describe("signUp", () => {
   });
 
   it("returns rate limit error after too many signup attempts", async () => {
-    mockPrisma.rateLimitAttempt.count.mockResolvedValue(3);
+    // First call is email count, second is IP count
+    mockPrisma.rateLimitAttempt.count.mockResolvedValueOnce(3).mockResolvedValueOnce(0);
 
     const result = await signUp(makeFormData({ email: "new@user.com", password: "abc123", fullName: "New" }));
     expect(result).toEqual({ error: "Too many signup attempts. Please try again later." });

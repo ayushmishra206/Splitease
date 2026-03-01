@@ -101,6 +101,14 @@ describe("requestPasswordReset", () => {
     await requestPasswordReset(makeFormData({ email: "a@b.com" }));
 
     expect(mockSendEmail).toHaveBeenCalledOnce();
+    // The email body (3rd arg) should contain the raw token, not the hash
+    const emailBody = mockSendEmail.mock.calls[0][2];
+    // The passwordResetEmail template is called with the reset URL containing the raw token
+    const { passwordResetEmail } = await import("@/lib/email/templates");
+    expect(passwordResetEmail).toHaveBeenCalledWith(
+      "Alice",
+      expect.stringContaining(MOCK_RAW_TOKEN),
+    );
   });
 
   it("creates token and sends email on valid request", async () => {
@@ -203,10 +211,19 @@ describe("resetPassword", () => {
     expect(result.success).toContain("Password reset successfully");
     expect(mockPrisma.$transaction).toHaveBeenCalledOnce();
 
-    // Verify the transaction includes passwordChangedAt
-    const txArgs = mockPrisma.$transaction.mock.calls[0][0];
-    // The transaction receives Prisma promises, which are already constructed
-    // We just verify the transaction was called (detailed verification handled by the type system)
-    expect(txArgs).toHaveLength(2);
+    // Verify user.update was called with passwordChangedAt and a bcrypt-hashed password
+    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      where: { id: "u1" },
+      data: {
+        password: expect.stringMatching(/^\$2[aby]\$/),
+        passwordChangedAt: expect.any(Date),
+      },
+    });
+
+    // Verify token was marked as used
+    expect(mockPrisma.passwordResetToken.update).toHaveBeenCalledWith({
+      where: { id: "t1" },
+      data: { usedAt: expect.any(Date) },
+    });
   });
 });

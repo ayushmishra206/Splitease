@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { signIn } from "@/actions/auth";
@@ -11,12 +11,24 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 
+function OAuthErrorBanner() {
+  const searchParams = useSearchParams();
+  const oauthError = searchParams.get("error");
+
+  if (oauthError !== "OAuthAccountNotLinked") return null;
+
+  return (
+    <div className="rounded-lg bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
+      An account with this email already exists. Please sign in with your password.
+    </div>
+  );
+}
+
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/";
-  const oauthError = searchParams.get("error");
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -44,11 +56,9 @@ export default function LoginPage() {
         </p>
       </div>
 
-      {oauthError === "OAuthAccountNotLinked" && (
-        <div className="rounded-lg bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
-          An account with this email already exists. Please sign in with your password.
-        </div>
-      )}
+      <Suspense>
+        <OAuthErrorBanner />
+      </Suspense>
 
       <Button
         variant="outline"

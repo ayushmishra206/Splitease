@@ -215,5 +215,6 @@ model RateLimitAttempt {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@index([email, ipAddress, type, createdAt])
+  @@index([createdAt]) // Optimizes stale record cleanup queries
   @@map("rate_limit_attempts")
 }
