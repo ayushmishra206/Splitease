@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { sendEmailSafe } from "@/lib/email/send";
 import { addedToGroupEmail } from "@/lib/email/templates";
+import { notifyGroupMembers } from "@/lib/push";
 
 export async function fetchGroups() {
   const user = await getAuthenticatedUser();
@@ -75,6 +76,13 @@ export async function createGroup(input: {
         );
       }
     }
+
+    // Push notifications to added members
+    void notifyGroupMembers(user.id, addedMembers.map((m) => m.member.id), {
+      title: `Added to ${group.name}`,
+      body: `${creatorName} added you to ${group.name}`,
+      url: `/groups/${group.id}`,
+    });
   }
 
   revalidatePath("/groups");
@@ -140,18 +148,25 @@ export async function addGroupMember(groupId: string, memberId: string) {
   });
 
   // Notify the added member
-  if (member.member.email) {
-    const adderName = (await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { fullName: true },
-    }))?.fullName ?? "Someone";
+  const adderName = (await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { fullName: true },
+  }))?.fullName ?? "Someone";
 
+  if (member.member.email) {
     sendEmailSafe(
       member.member.email,
       `You've been added to ${group.name}`,
       addedToGroupEmail(member.member.fullName ?? "there", group.name, adderName)
     );
   }
+
+  // Push notification to the new member
+  void notifyGroupMembers(user.id, [memberId], {
+    title: `Added to ${group.name}`,
+    body: `${adderName} added you to ${group.name}`,
+    url: `/groups/${groupId}`,
+  });
 
   revalidatePath("/groups");
   return member;

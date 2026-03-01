@@ -1179,7 +1179,7 @@ Create `lib/push.ts`:
 import webPush from "web-push";
 
 webPush.setVapidDetails(
-  "mailto:noreply@splitease.app",
+  `mailto:${process.env.EMAIL_FROM?.match(/<(.+)>/)?.[1] ?? `noreply@${new URL(process.env.NEXT_PUBLIC_APP_URL!).hostname}`}`,
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
   process.env.VAPID_PRIVATE_KEY!
 );

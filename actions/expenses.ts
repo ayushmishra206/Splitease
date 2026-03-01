@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { sendEmailSafe } from "@/lib/email/send";
 import { expenseAddedEmail } from "@/lib/email/templates";
-import { sendPushNotification } from "@/lib/push";
+import { notifyGroupMembers } from "@/lib/push";
 
 function computeNextOccurrence(date: Date, rule: string): Date {
   const next = new Date(date);
@@ -73,6 +73,7 @@ export async function createExpense(input: {
   isRecurring?: boolean;
   recurrenceRule?: string;
   receiptUrl?: string;
+  notifyByEmail?: boolean;
   splits: { memberId: string; share: number }[];
 }) {
   const user = await getAuthenticatedUser();
@@ -117,45 +118,40 @@ export async function createExpense(input: {
     },
   });
 
-  // Notify group members (excluding the payer)
+  // Notify group members (excluding the creator)
   const payerName = expense.payer?.fullName ?? "Someone";
+  const amountStr = parseFloat(String(expense.amount)).toFixed(2);
   const groupMembers = await prisma.groupMember.findMany({
     where: { groupId: input.groupId },
     include: { member: { select: { id: true, email: true, fullName: true } } },
   });
-  for (const gm of groupMembers) {
-    if (gm.member.id === input.payerId) continue;
-    sendEmailSafe(
-      gm.member.email,
-      `New expense in ${expense.group.name}`,
-      expenseAddedEmail(
-        gm.member.fullName ?? "there",
-        expense.description,
-        parseFloat(String(expense.amount)).toFixed(2),
-        expense.group.currency,
-        expense.group.name,
-        payerName
-      )
-    );
+  const memberIds = groupMembers.map((gm) => gm.member.id);
+
+  // Email only when user opted in
+  if (input.notifyByEmail) {
+    for (const gm of groupMembers) {
+      if (gm.member.id === user.id) continue;
+      sendEmailSafe(
+        gm.member.email,
+        `New expense in ${expense.group.name}`,
+        expenseAddedEmail(
+          gm.member.fullName ?? "there",
+          expense.description,
+          amountStr,
+          expense.group.currency,
+          expense.group.name,
+          payerName
+        )
+      );
+    }
   }
 
-  // Send push notifications
-  const pushSubs = await prisma.pushSubscription.findMany({
-    where: {
-      userId: {
-        in: groupMembers
-          .filter((gm) => gm.member.id !== input.payerId)
-          .map((gm) => gm.member.id),
-      },
-    },
+  // Push notifications always
+  void notifyGroupMembers(user.id, memberIds, {
+    title: `New expense in ${expense.group.name}`,
+    body: `${payerName} added "${expense.description}" — ${amountStr} ${expense.group.currency}`,
+    url: `/groups/${input.groupId}`,
   });
-  for (const sub of pushSubs) {
-    void sendPushNotification(sub, {
-      title: `New expense in ${expense.group.name}`,
-      body: `${payerName} added "${expense.description}" — ${parseFloat(String(expense.amount)).toFixed(2)} ${expense.group.currency}`,
-      url: `/groups/${input.groupId}`,
-    });
-  }
 
   // Log activity
   void prisma.activityLog.create({
@@ -238,6 +234,17 @@ export async function updateExpense(input: {
     });
   });
 
+  // Notify group members about the update
+  const groupMembers = await prisma.groupMember.findMany({
+    where: { groupId: input.groupId },
+    select: { memberId: true },
+  });
+  void notifyGroupMembers(user.id, groupMembers.map((gm) => gm.memberId), {
+    title: `Expense updated in ${expense.group.name}`,
+    body: `${expense.payer?.fullName ?? "Someone"} updated "${expense.description}"`,
+    url: `/groups/${input.groupId}`,
+  });
+
   // Log activity
   void prisma.activityLog.create({
     data: {
@@ -272,13 +279,19 @@ export async function deleteExpense(id: string) {
       groupId: true,
       description: true,
       amount: true,
-      group: { select: { currency: true } },
+      group: { select: { name: true, currency: true } },
     },
   });
   if (!expense) throw new Error("Expense not found");
 
   const isCreator = expense.createdById === user.id || expense.payerId === user.id;
   if (!isCreator) throw new Error("Only the expense creator can delete this expense");
+
+  // Fetch group members before deleting for notifications
+  const groupMembers = await prisma.groupMember.findMany({
+    where: { groupId: expense.groupId },
+    select: { memberId: true },
+  });
 
   // Log activity before deleting
   await prisma.activityLog.create({
@@ -292,6 +305,14 @@ export async function deleteExpense(id: string) {
   });
 
   await prisma.expense.delete({ where: { id } });
+
+  // Notify group members about deletion
+  void notifyGroupMembers(user.id, groupMembers.map((gm) => gm.memberId), {
+    title: `Expense deleted in ${expense.group.name}`,
+    body: `"${expense.description}" — ${parseFloat(String(expense.amount)).toFixed(2)} ${expense.group.currency} was removed`,
+    url: `/groups/${expense.groupId}`,
+  });
+
   revalidatePath("/expenses");
   revalidatePath("/");
 }

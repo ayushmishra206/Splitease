@@ -63,6 +63,7 @@ export function QuickAddExpense({ groups, currentUserId }: QuickAddExpenseProps)
     payerId: string;
     expenseDate: string;
     notes?: string;
+    notifyByEmail?: boolean;
     splits: { memberId: string; share: number }[];
   }) => {
     try {

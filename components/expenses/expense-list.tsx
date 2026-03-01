@@ -225,6 +225,7 @@ export function ExpenseList({ initialExpenses, initialNextCursor, groups, curren
     payerId: string;
     expenseDate: string;
     notes?: string;
+    notifyByEmail?: boolean;
     splits: { memberId: string; share: number }[];
   }) => {
     try {

@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { computeEqualSplit, formatCurrency } from "@/lib/utils";
 import { CATEGORIES, type ExpenseCategory } from "@/lib/categories";
 import { useUploadThing } from "@/lib/uploadthing";
-import { Upload, X, Repeat } from "lucide-react";
+import { Upload, X, Repeat, Mail } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -92,6 +92,7 @@ interface ExpenseFormProps {
     isRecurring?: boolean;
     recurrenceRule?: string;
     receiptUrl?: string;
+    notifyByEmail?: boolean;
     splits: { memberId: string; share: number }[];
   }) => Promise<void>;
   onCancel: () => void;
@@ -151,6 +152,7 @@ export function ExpenseForm({
 
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrenceRule, setRecurrenceRule] = useState("monthly");
+  const [notifyByEmail, setNotifyByEmail] = useState(false);
 
   const { startUpload } = useUploadThing("receiptUploader");
 
@@ -331,6 +333,7 @@ export function ExpenseForm({
       isRecurring: isRecurring || undefined,
       recurrenceRule: isRecurring ? recurrenceRule : undefined,
       receiptUrl: finalReceiptUrl,
+      notifyByEmail: notifyByEmail || undefined,
       splits,
     });
   };
@@ -722,6 +725,22 @@ export function ExpenseForm({
           </Select>
         )}
       </div>
+
+      {/* Email notification opt-in */}
+      {!defaultValues && (
+        <div className="space-y-2">
+          <label className="flex cursor-pointer items-center gap-3">
+            <Checkbox
+              checked={notifyByEmail}
+              onCheckedChange={(checked) => setNotifyByEmail(checked === true)}
+            />
+            <span className="flex items-center gap-1.5 text-sm font-medium">
+              <Mail className="size-4" />
+              Email group members about this expense
+            </span>
+          </label>
+        </div>
+      )}
 
       {/* Actions */}
       <div className="flex justify-end gap-2 pt-2">

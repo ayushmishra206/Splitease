@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { notifyGroupMembers } from "@/lib/push";
 
 export async function GET(request: Request) {
   // Verify cron secret
@@ -16,6 +17,13 @@ export async function GET(request: Request) {
     },
     include: {
       splits: true,
+      group: {
+        select: {
+          name: true,
+          currency: true,
+          members: { select: { memberId: true } },
+        },
+      },
     },
   });
 
@@ -39,6 +47,15 @@ export async function GET(request: Request) {
           })),
         },
       },
+    });
+
+    // Notify all group members about the recurring expense
+    const memberIds = expense.group.members.map((m) => m.memberId);
+    const amountStr = parseFloat(String(expense.amount)).toFixed(2);
+    void notifyGroupMembers("", memberIds, {
+      title: `Recurring expense in ${expense.group.name}`,
+      body: `"${expense.description}" — ${amountStr} ${expense.group.currency}`,
+      url: `/groups/${expense.groupId}`,
     });
 
     // Compute next occurrence

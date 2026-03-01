@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email/send";
 import { passwordResetEmail } from "@/lib/email/templates";
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL!;
 const RATE_LIMIT = 3; // max tokens per hour
 const TOKEN_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
 

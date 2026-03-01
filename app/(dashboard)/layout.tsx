@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { QuickAddExpense } from "@/components/quick-add-expense";
+import { PushPrompt } from "@/components/push-prompt";
 
 export default async function DashboardLayout({
   children,
@@ -31,6 +32,7 @@ export default async function DashboardLayout({
       <Sidebar user={serializedUser} />
       <main className="relative flex min-h-screen min-w-0 flex-1 flex-col overflow-x-hidden">
         <Header user={serializedUser} />
+        <PushPrompt />
         <div className="mx-auto w-full max-w-5xl flex-1 px-4 pb-24 pt-6 sm:px-6 sm:pb-8 sm:pt-8">
           {children}
         </div>

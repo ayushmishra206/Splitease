@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getAuthenticatedUser } from "@/lib/auth";
 import { sendEmailSafe } from "@/lib/email/send";
 import { settlementRecordedEmail } from "@/lib/email/templates";
-import { sendPushNotification } from "@/lib/push";
+import { notifyGroupMembers } from "@/lib/push";
 
 export async function fetchSettlements(groupId?: string) {
   const user = await getAuthenticatedUser();
@@ -94,20 +94,11 @@ export async function createSettlement(input: {
   }
 
   // Send push notifications
-  const pushSubs = await prisma.pushSubscription.findMany({
-    where: {
-      userId: {
-        in: [input.fromMember, input.toMember].filter((id) => id !== user.id),
-      },
-    },
+  void notifyGroupMembers(user.id, [input.fromMember, input.toMember], {
+    title: `Settlement in ${groupName}`,
+    body: `${fromName} paid ${toName} ${amountStr} ${currency}`,
+    url: `/groups/${input.groupId}`,
   });
-  for (const sub of pushSubs) {
-    void sendPushNotification(sub, {
-      title: `Settlement in ${groupName}`,
-      body: `${fromName} paid ${toName} ${amountStr} ${currency}`,
-      url: `/groups/${input.groupId}`,
-    });
-  }
 
   // Log activity
   void prisma.activityLog.create({
@@ -157,6 +148,16 @@ export async function updateSettlement(input: {
     },
   });
 
+  // Notify both parties about the update
+  const fromName = settlement.from.fullName ?? "Someone";
+  const toName = settlement.to.fullName ?? "Someone";
+  const amountStr = parseFloat(String(settlement.amount)).toFixed(2);
+  void notifyGroupMembers(user.id, [input.fromMember, input.toMember], {
+    title: `Settlement updated in ${settlement.group.name}`,
+    body: `${fromName} → ${toName}: ${amountStr} ${settlement.group.currency} (updated)`,
+    url: `/groups/${input.groupId}`,
+  });
+
   revalidatePath("/settlements");
   revalidatePath("/");
   return settlement;
@@ -167,7 +168,11 @@ export async function deleteSettlement(id: string) {
 
   const settlement = await prisma.settlement.findUnique({
     where: { id },
-    include: { group: { include: { members: true } } },
+    include: {
+      group: { select: { name: true, currency: true, members: { select: { memberId: true } } } },
+      from: { select: { fullName: true } },
+      to: { select: { fullName: true } },
+    },
   });
   if (!settlement) throw new Error("Settlement not found");
 
@@ -175,6 +180,17 @@ export async function deleteSettlement(id: string) {
   if (!isMember) throw new Error("Not authorized");
 
   await prisma.settlement.delete({ where: { id } });
+
+  // Notify both parties about the deletion
+  const fromName = settlement.from.fullName ?? "Someone";
+  const toName = settlement.to.fullName ?? "Someone";
+  const amountStr = parseFloat(String(settlement.amount)).toFixed(2);
+  void notifyGroupMembers(user.id, [settlement.fromMember, settlement.toMember], {
+    title: `Settlement deleted in ${settlement.group.name}`,
+    body: `${fromName} → ${toName}: ${amountStr} ${settlement.group.currency} was removed`,
+    url: `/groups/${settlement.groupId}`,
+  });
+
   revalidatePath("/settlements");
   revalidatePath("/");
 }
