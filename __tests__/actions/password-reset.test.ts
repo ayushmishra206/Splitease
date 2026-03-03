@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import crypto from "crypto";
 
 // ── Mocks (hoisted so vi.mock factories can reference them) ────────────────
 
@@ -21,9 +22,20 @@ vi.mock("@/lib/email/send", () => ({ sendEmail: mockSendEmail }));
 vi.mock("@/lib/email/templates", () => ({
   passwordResetEmail: vi.fn(() => "<html>reset</html>"),
 }));
-vi.mock("crypto", () => ({
-  default: { randomBytes: () => ({ toString: () => "mock-token-abc123" }) },
-}));
+
+const MOCK_RAW_TOKEN = "mock-token-abc123";
+// Pre-compute the expected hash of our mock token
+const MOCK_TOKEN_HASH = crypto.createHash("sha256").update(MOCK_RAW_TOKEN).digest("hex");
+
+vi.mock("crypto", async () => {
+  const actual = await vi.importActual<typeof import("crypto")>("crypto");
+  return {
+    default: {
+      ...actual,
+      randomBytes: () => ({ toString: () => MOCK_RAW_TOKEN }),
+    },
+  };
+});
 
 import { requestPasswordReset, resetPassword } from "@/actions/password-reset";
 
@@ -60,6 +72,43 @@ describe("requestPasswordReset", () => {
 
     const result = await requestPasswordReset(makeFormData({ email: "a@b.com" }));
     expect(result.error).toContain("Too many reset requests");
+  });
+
+  it("stores hashed token, not raw token", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: "u1", fullName: "Alice", email: "a@b.com",
+    });
+    mockPrisma.passwordResetToken.count.mockResolvedValue(0);
+    mockPrisma.passwordResetToken.create.mockResolvedValue({});
+    mockSendEmail.mockResolvedValue(undefined);
+
+    await requestPasswordReset(makeFormData({ email: "a@b.com" }));
+
+    const createCall = mockPrisma.passwordResetToken.create.mock.calls[0][0];
+    // Token stored in DB should be the SHA-256 hash, not the raw token
+    expect(createCall.data.token).toBe(MOCK_TOKEN_HASH);
+    expect(createCall.data.token).not.toBe(MOCK_RAW_TOKEN);
+  });
+
+  it("sends raw token in email URL, not hash", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: "u1", fullName: "Alice", email: "a@b.com",
+    });
+    mockPrisma.passwordResetToken.count.mockResolvedValue(0);
+    mockPrisma.passwordResetToken.create.mockResolvedValue({});
+    mockSendEmail.mockResolvedValue(undefined);
+
+    await requestPasswordReset(makeFormData({ email: "a@b.com" }));
+
+    expect(mockSendEmail).toHaveBeenCalledOnce();
+    // The email body (3rd arg) should contain the raw token, not the hash
+    const emailBody = mockSendEmail.mock.calls[0][2];
+    // The passwordResetEmail template is called with the reset URL containing the raw token
+    const { passwordResetEmail } = await import("@/lib/email/templates");
+    expect(passwordResetEmail).toHaveBeenCalledWith(
+      "Alice",
+      expect.stringContaining(MOCK_RAW_TOKEN),
+    );
   });
 
   it("creates token and sends email on valid request", async () => {
@@ -118,6 +167,18 @@ describe("resetPassword", () => {
     expect(result.error).toContain("do not match");
   });
 
+  it("hashes token before DB lookup", async () => {
+    mockPrisma.passwordResetToken.findUnique.mockResolvedValue(null);
+
+    await resetPassword(makeFormData({ token: "raw-token-value", password: "abc123", confirmPassword: "abc123" }));
+
+    const expectedHash = crypto.createHash("sha256").update("raw-token-value").digest("hex");
+    expect(mockPrisma.passwordResetToken.findUnique).toHaveBeenCalledWith({
+      where: { token: expectedHash },
+      select: { id: true, userId: true, expiresAt: true, usedAt: true },
+    });
+  });
+
   it("returns error for invalid token", async () => {
     mockPrisma.passwordResetToken.findUnique.mockResolvedValue(null);
     const result = await resetPassword(makeFormData({ token: "bad", password: "abc123", confirmPassword: "abc123" }));
@@ -140,7 +201,7 @@ describe("resetPassword", () => {
     expect(result.error).toContain("expired");
   });
 
-  it("resets password on valid token", async () => {
+  it("resets password and sets passwordChangedAt on valid token", async () => {
     mockPrisma.passwordResetToken.findUnique.mockResolvedValue({
       id: "t1", userId: "u1", expiresAt: new Date(Date.now() + 60000), usedAt: null,
     });
@@ -149,5 +210,20 @@ describe("resetPassword", () => {
     const result = await resetPassword(makeFormData({ token: "good", password: "newpass123", confirmPassword: "newpass123" }));
     expect(result.success).toContain("Password reset successfully");
     expect(mockPrisma.$transaction).toHaveBeenCalledOnce();
+
+    // Verify user.update was called with passwordChangedAt and a bcrypt-hashed password
+    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      where: { id: "u1" },
+      data: {
+        password: expect.stringMatching(/^\$2[aby]\$/),
+        passwordChangedAt: expect.any(Date),
+      },
+    });
+
+    // Verify token was marked as used
+    expect(mockPrisma.passwordResetToken.update).toHaveBeenCalledWith({
+      where: { id: "t1" },
+      data: { usedAt: expect.any(Date) },
+    });
   });
 });

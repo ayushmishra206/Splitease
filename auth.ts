@@ -41,14 +41,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // Find or create user for Google OAuth
         let dbUser = await prisma.user.findUnique({
           where: { email: user.email },
+          select: { id: true, authProvider: true },
         });
 
-        if (!dbUser) {
-          dbUser = await prisma.user.create({
+        if (dbUser) {
+          if (dbUser.authProvider === "credentials") {
+            // Account created via email/password — don't auto-merge with OAuth
+            return "/login?error=OAuthAccountNotLinked";
+          }
+          // Existing OAuth user (may have set a password later) — allow sign-in
+          user.id = dbUser.id;
+        } else {
+          // New user — create account via OAuth
+          const newUser = await prisma.user.create({
             data: {
               email: user.email,
               fullName: user.name ?? null,
               avatarUrl: user.image ?? null,
+              authProvider: "google",
             },
           });
           sendEmailSafe(
@@ -56,12 +66,42 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             "Welcome to SplitEase!",
             welcomeEmail(user.name ?? "there")
           );
+          user.id = newUser.id;
         }
-
-        // Set the user id so JWT callback can pick it up
-        user.id = dbUser.id;
       }
       return true;
+    },
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+        // Store passwordChangedAt in token at sign-in to avoid per-request DB queries
+        const dbUser = await prisma.user.findUnique({
+          where: { id: user.id as string },
+          select: { passwordChangedAt: true },
+        });
+        token.passwordChangedAt = dbUser?.passwordChangedAt?.getTime() ?? 0;
+        token.lastChecked = Date.now();
+      }
+
+      // Periodically re-check passwordChangedAt from DB (every 60 seconds)
+      // to detect password changes without hitting DB on every request
+      const lastChecked = (token.lastChecked as number) ?? 0;
+      if (token.id && Date.now() - lastChecked > 60_000) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: { passwordChangedAt: true },
+        });
+        const dbChangedAt = dbUser?.passwordChangedAt?.getTime() ?? 0;
+        const tokenChangedAt = (token.passwordChangedAt as number) ?? 0;
+
+        if (dbChangedAt > tokenChangedAt) {
+          // Password was changed after this token was issued — force re-auth
+          return {} as typeof token;
+        }
+        token.lastChecked = Date.now();
+      }
+
+      return token;
     },
   },
 });
