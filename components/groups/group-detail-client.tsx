@@ -8,8 +8,6 @@ import {
   Archive,
   ArchiveRestore,
   ArrowLeft,
-  Copy,
-  Check,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
@@ -39,6 +37,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { InviteMembersDialog } from "@/components/groups/invite-members-dialog";
 
 interface GroupDetailClientProps {
   data: GroupDetailData;
@@ -56,7 +55,6 @@ function formatDateHeader(date: Date): string {
 export function GroupDetailClient({ data, currentUserId }: GroupDetailClientProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>("expenses");
-  const [copied, setCopied] = useState(false);
   const [settleOpen, setSettleOpen] = useState(false);
   const [settleFrom, setSettleFrom] = useState("");
   const [settleTo, setSettleTo] = useState("");
@@ -66,14 +64,6 @@ export function GroupDetailClient({ data, currentUserId }: GroupDetailClientProp
   const { group, members, expenses, settlements, activityLogs } = data;
 
   const memberNames = members.map((m) => m.fullName);
-
-  function handleCopyInvite() {
-    const url = `${window.location.origin}/groups?join=${group.id}`;
-    navigator.clipboard.writeText(url);
-    setCopied(true);
-    toast.success("Invite link copied!");
-    setTimeout(() => setCopied(false), 2000);
-  }
 
   function openSettleDialog(from?: string, to?: string, amount?: number) {
     setSettleFrom(from ?? currentUserId);
@@ -173,10 +163,9 @@ export function GroupDetailClient({ data, currentUserId }: GroupDetailClientProp
             </span>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={handleCopyInvite}>
-          {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-          {copied ? "Copied" : "Invite"}
-        </Button>
+        {!isArchived && (
+          <InviteMembersDialog groupId={group.id} />
+        )}
         {isOwner && !isArchived && allSettled && (
           <Button variant="outline" size="sm" onClick={async () => {
             await archiveGroup(group.id);

@@ -13,11 +13,15 @@ export const authConfig = {
         nextUrl.pathname.startsWith("/signup") ||
         nextUrl.pathname.startsWith("/forgot-password") ||
         nextUrl.pathname.startsWith("/reset-password");
+      const isInvitePage = nextUrl.pathname.startsWith("/invite/");
 
       if (isAuthPage) {
         if (isLoggedIn) return Response.redirect(new URL("/", nextUrl));
         return true;
       }
+
+      // Allow invite pages for both logged-in and anonymous users
+      if (isInvitePage) return true;
 
       return isLoggedIn;
     },

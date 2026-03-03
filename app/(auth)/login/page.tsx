@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { signIn } from "@/actions/auth";
 import { signIn as nextAuthSignIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
@@ -13,11 +14,14 @@ import { toast } from "sonner";
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") ?? "/";
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     const formData = new FormData(e.currentTarget);
+    formData.set("callbackUrl", callbackUrl);
     const result = await signIn(formData);
     if (result?.error) {
       toast.error(result.error);
@@ -27,7 +31,7 @@ export default function LoginPage() {
 
   function handleGoogleSignIn() {
     setGoogleLoading(true);
-    nextAuthSignIn("google", { callbackUrl: "/" });
+    nextAuthSignIn("google", { callbackUrl });
   }
 
   return (

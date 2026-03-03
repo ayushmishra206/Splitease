@@ -20,6 +20,7 @@ import { useTheme } from "next-themes";
 import { signOut } from "@/actions/auth";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/ui/logo";
+import { PendingInvitesBadge } from "@/components/layout/pending-invites-badge";
 
 const navItems = [
   { label: "Dashboard", path: "/", icon: LayoutDashboard },
@@ -94,6 +95,7 @@ export function Sidebar({ user }: SidebarProps) {
               </Link>
             );
           })}
+          <PendingInvitesBadge collapsed={collapsed} />
         </nav>
 
         {/* Bottom section */}

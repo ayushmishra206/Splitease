@@ -12,12 +12,13 @@ import { welcomeEmail } from "@/lib/email/templates";
 export async function signIn(formData: FormData) {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
+  const callbackUrl = (formData.get("callbackUrl") as string) || "/";
 
   try {
     await nextAuthSignIn("credentials", {
       email,
       password,
-      redirectTo: "/",
+      redirectTo: callbackUrl,
     });
   } catch (error) {
     if (error instanceof AuthError) {
@@ -31,6 +32,7 @@ export async function signUp(formData: FormData) {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
   const fullName = formData.get("fullName") as string;
+  const callbackUrl = (formData.get("callbackUrl") as string) || "/";
 
   if (!email || !password || !fullName) {
     return { error: "All fields are required" };
@@ -61,7 +63,7 @@ export async function signUp(formData: FormData) {
     await nextAuthSignIn("credentials", {
       email,
       password,
-      redirectTo: "/",
+      redirectTo: callbackUrl,
     });
   } catch (error) {
     if (error instanceof AuthError) {

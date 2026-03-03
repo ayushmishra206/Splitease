@@ -27,6 +27,7 @@ model User {
   resetTokens       PasswordResetToken[]
   pushSubscriptions PushSubscription[]
   activityLogs      ActivityLog[]
+  sentInvites       GroupInvite[]  @relation("SentInvites")
 
   @@map("users")
 }
@@ -46,6 +47,7 @@ model Group {
   expenses     Expense[]
   settlements  Settlement[]
   activityLogs ActivityLog[]
+  invites      GroupInvite[]
 
   @@map("groups")
 }
@@ -171,4 +173,32 @@ model ActivityLog {
 
   @@index([groupId, createdAt])
   @@map("activity_logs")
+}
+
+enum GroupInviteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+
+model GroupInvite {
+  id        String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  groupId   String            @map("group_id") @db.Uuid
+  email     String
+  token     String            @unique
+  status    GroupInviteStatus  @default(PENDING)
+  invitedBy String            @map("invited_by") @db.Uuid
+  expiresAt DateTime          @map("expires_at") @db.Timestamptz(6)
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  group   Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  inviter User  @relation("SentInvites", fields: [invitedBy], references: [id])
+
+  @@unique([groupId, email])
+  @@index([token])
+  @@index([email])
+  @@index([groupId, status])
+  @@map("group_invites")
 }
