@@ -112,20 +112,33 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ### Upgrading an existing database
 
-Multi-payer support adds one table, `expense_payers`. Run `npm run db:push`
-after pulling. No backfill is needed: expenses without payer rows are treated as
-paid in full by their `payer_id`. See `docs/audit/2026-09-08-code-and-ux-audit.md`
-for the optional backfill SQL and the full audit.
+Run `npm run db:apply` after pulling. It applies the SQL patches in
+[`prisma/sql/`](prisma/sql), which only ever add to the database and are safe to
+re-run. Multi-payer support adds one table, `expense_payers`; no backfill is
+needed, since expenses without payer rows are treated as paid in full by their
+`payer_id`. See `docs/audit/2026-09-08-code-and-ux-audit.md` for the optional
+backfill SQL and the full audit.
 
-If you cannot run the Prisma CLI against the database (for example, you only
-have the Neon SQL editor), apply
-[`prisma/sql/2026-09-08-add-expense-payers.sql`](prisma/sql/2026-09-08-add-expense-payers.sql)
-instead. It is idempotent and leaves the database in sync with the Prisma schema.
+Without the Prisma CLI (for example, with only the Neon SQL editor), paste the
+files in `prisma/sql/` in filename order instead. They are plain, idempotent SQL.
 
-A database missing this table makes every page that reads expenses — dashboard,
-expenses, groups, group detail and analytics — fail with a Server Components
-render error, because Prisma raises `P2021: The table public.expense_payers does
-not exist in the current database`.
+A database missing `expense_payers` makes every page that reads expenses —
+dashboard, expenses, groups, group detail and analytics — fail with a Server
+Components render error, because Prisma raises `P2021: The table
+public.expense_payers does not exist in the current database`.
+
+#### Why patches instead of `prisma db push`
+
+`db push` makes the database *match* `schema.prisma`, so it insists on dropping
+anything the schema no longer describes. The production database holds a
+`users.auth_provider` column and a `rate_limit_attempts` table that nothing in
+this repo references, so `db push` there fails with a data-loss error and cannot
+be used unattended. `npm run db:push` is still fine against a database you know
+matches the schema, such as a fresh local one.
+
+That drift is worth reconciling deliberately at some point: either restore the
+two objects to `schema.prisma` if they are still wanted, or drop them once you
+are sure nothing depends on them.
 
 ### Quality checks
 
@@ -147,19 +160,29 @@ To enable Google sign-in locally, add `http://localhost:3000/api/auth/callback/g
 4. Deploy
 
 `npm run build` runs `scripts/db-sync.mjs` between `prisma generate` and
-`next build`, so a **production** deploy applies any schema change along with the
-code that needs it. It is deliberately narrow:
+`next build`, so a **production** deploy applies the patches in `prisma/sql/`
+along with the code that needs them. It is deliberately narrow:
 
-- Only Vercel production deploys sync. Preview deploys share the production
-  database, so pushing from them would let an unmerged branch reshape it. Local
-  and CI builds do nothing — run `npm run db:push` to sync by hand.
+- Only Vercel production deploys apply patches. Preview deploys share the
+  production database, so patching from them would let an unmerged branch reshape
+  it. Local and CI builds do nothing — use `npm run db:apply`.
 - Without `DATABASE_URL` and `DIRECT_URL` at build time it warns and skips, so it
   can never turn a deploy that used to succeed into a failed one. Set both for the
-  Build environment in Vercel if you want production deploys to sync.
-- `db push` runs without `--accept-data-loss`. A deploy whose schema would drop a
-  column or table fails the build instead of destroying data — including a
-  rollback to a commit older than a schema change. Apply such a change by hand
-  first, or set `SKIP_DB_SYNC=1` for that deploy.
+  Build environment in Vercel if you want production deploys to apply patches.
+- A patch that errors fails the build, rather than shipping code whose tables are
+  missing. `SKIP_DB_SYNC=1` opts a deploy out.
+
+### Adding a schema change
+
+1. Edit `prisma/schema.prisma`.
+2. Add an idempotent patch to `prisma/sql/`, named with a leading date so it
+   sorts after the existing ones — guard it with `IF NOT EXISTS`, or a
+   `DO $$ ... END $$` block that checks a catalog first. Patches re-run on every
+   deploy, and must never drop anything.
+3. Apply it locally with `npm run db:apply`, then `npx prisma generate`.
+
+Ship the patch in the same commit as the code that needs it; the deploy applies
+it before the build.
 
 ## Project Structure
 
