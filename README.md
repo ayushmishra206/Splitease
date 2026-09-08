@@ -146,15 +146,20 @@ To enable Google sign-in locally, add `http://localhost:3000/api/auth/callback/g
 3. Add the environment variables above (set `AUTH_URL` and `NEXT_PUBLIC_APP_URL` to your production URL)
 4. Deploy
 
-`npm run build` runs `prisma db push` before `next build`, so a deploy applies
-any schema change along with the code that needs it. Two consequences worth
-knowing:
+`npm run build` runs `scripts/db-sync.mjs` between `prisma generate` and
+`next build`, so a **production** deploy applies any schema change along with the
+code that needs it. It is deliberately narrow:
 
-- `DATABASE_URL` and `DIRECT_URL` must be set for the build, not just at runtime.
-- `db push` is deliberately run without `--accept-data-loss`. A deploy of a
-  commit whose schema would drop a column or table fails the build instead of
-  destroying data — including a rollback to a commit older than a schema change.
-  Apply such a change to the database by hand first.
+- Only Vercel production deploys sync. Preview deploys share the production
+  database, so pushing from them would let an unmerged branch reshape it. Local
+  and CI builds do nothing — run `npm run db:push` to sync by hand.
+- Without `DATABASE_URL` and `DIRECT_URL` at build time it warns and skips, so it
+  can never turn a deploy that used to succeed into a failed one. Set both for the
+  Build environment in Vercel if you want production deploys to sync.
+- `db push` runs without `--accept-data-loss`. A deploy whose schema would drop a
+  column or table fails the build instead of destroying data — including a
+  rollback to a commit older than a schema change. Apply such a change by hand
+  first, or set `SKIP_DB_SYNC=1` for that deploy.
 
 ## Project Structure
 
