@@ -326,7 +326,8 @@ export function ExpenseForm({
       payers: paid.payers,
       expenseDate: data.expenseDate,
       notes: data.notes?.trim() || undefined,
-      isRecurring: isRecurring || undefined,
+      // Always explicit so clearing the toggle on edit actually stops the recurrence
+      isRecurring,
       recurrenceRule: isRecurring ? (recurrenceRule as ExpenseInput["recurrenceRule"]) : undefined,
       receiptUrl: finalReceiptUrl,
       notifyByEmail: notifyByEmail || undefined,

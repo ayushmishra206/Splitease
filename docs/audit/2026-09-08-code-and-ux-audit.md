@@ -7,7 +7,7 @@ implemented on branch `claude/audit-mobile-optimization-1md0pt`; items under
 "Nice-to-have backlog" are not implemented and are listed for prioritisation.
 
 Verification at the end of the work: `tsc --noEmit` clean, `eslint` 0 errors
-(1 pre-existing warning from react-hook-form), `vitest` 145 tests passing,
+(1 pre-existing warning from react-hook-form), `vitest` 158 tests passing,
 `next build` succeeds.
 
 ---

@@ -270,9 +270,23 @@ export async function importUserData(rawPayload: unknown) {
   });
   const knownIds = new Set(existingUsers.map((u) => u.id));
 
+  // Ids in the file are only trusted when they either do not exist yet or
+  // already belong to the importing user. Anything else is skipped, so a
+  // crafted backup cannot rewrite records in someone else's group.
+  const existingGroups = await prisma.group.findMany({
+    where: { id: { in: payload.groups.map((g) => g.id) } },
+    select: { id: true, ownerId: true },
+  });
+  const existingGroupOwner = new Map(existingGroups.map((g) => [g.id, g.ownerId]));
+
   for (const group of payload.groups) {
     if (group.ownerId !== user.id) {
       results.skipped.push({ name: group.name, reason: "Not owned by you" });
+      continue;
+    }
+    const currentOwner = existingGroupOwner.get(group.id);
+    if (currentOwner !== undefined && currentOwner !== user.id) {
+      results.skipped.push({ name: group.name, reason: "A group with this id belongs to someone else" });
       continue;
     }
 
@@ -310,7 +324,33 @@ export async function importUserData(rawPayload: unknown) {
           });
         }
 
+        // Existing expenses/settlements may only be replaced when they already
+        // live in this group; ids that point elsewhere are ignored.
+        const foreignExpenseIds = new Set(
+          (
+            await tx.expense.findMany({
+              where: { id: { in: group.expenses.map((e) => e.id) }, groupId: { not: group.id } },
+              select: { id: true },
+            })
+          ).map((e) => e.id)
+        );
+        const foreignSettlementIds = new Set(
+          (
+            await tx.settlement.findMany({
+              where: { id: { in: group.settlements.map((s) => s.id) }, groupId: { not: group.id } },
+              select: { id: true },
+            })
+          ).map((s) => s.id)
+        );
+        if (foreignExpenseIds.size > 0 || foreignSettlementIds.size > 0) {
+          results.skipped.push({
+            name: group.name,
+            reason: `${foreignExpenseIds.size} expense(s) and ${foreignSettlementIds.size} settlement(s) belong to another group and were not imported`,
+          });
+        }
+
         for (const expense of group.expenses) {
+          if (foreignExpenseIds.has(expense.id)) continue;
           const amount = toNumber(expense.amount);
           const splits = expense.splits
             .filter((s) => memberIds.has(s.memberId))
@@ -358,6 +398,7 @@ export async function importUserData(rawPayload: unknown) {
         }
 
         for (const settlement of group.settlements) {
+          if (foreignSettlementIds.has(settlement.id)) continue;
           if (!memberIds.has(settlement.fromMember) || !memberIds.has(settlement.toMember)) continue;
           const data = {
             fromMember: settlement.fromMember,
