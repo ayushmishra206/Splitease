@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { createExpense } from "@/actions/expenses";
-import { Button } from "@/components/ui/button";
+import type { ExpenseInput } from "@/lib/validation";
+import type { GroupWithMembers } from "@/lib/types";
+import { isArchived } from "@/lib/types";
 import {
   Dialog,
   DialogContent,
@@ -15,95 +16,95 @@ import {
 } from "@/components/ui/dialog";
 import { ExpenseForm } from "@/components/expenses/expense-form";
 
-type GroupWithMembers = {
-  id: string;
-  name: string;
-  description: string | null;
-  currency: string;
-  status?: string;
-  ownerId: string;
-  createdAt: Date;
-  updatedAt: Date;
-  owner: {
-    id: string;
-    fullName: string | null;
-    avatarUrl: string | null;
-  };
-  members: Array<{
-    memberId: string;
-    role: string;
-    groupId: string;
-    joinedAt: Date;
-    member: {
-      id: string;
-      fullName: string | null;
-      avatarUrl: string | null;
-    };
-  }>;
+type OpenOptions = { groupId?: string };
+
+type QuickAddContextValue = {
+  /** Open the "Add expense" sheet, optionally pre-selecting a group. */
+  open: (options?: OpenOptions) => void;
+  /** Whether at least one active group exists to add expenses to. */
+  canAdd: boolean;
 };
 
-interface QuickAddExpenseProps {
-  groups: GroupWithMembers[];
-  currentUserId: string;
+const QuickAddContext = createContext<QuickAddContextValue | null>(null);
+
+export function useQuickAdd(): QuickAddContextValue {
+  const ctx = useContext(QuickAddContext);
+  if (!ctx) {
+    throw new Error("useQuickAdd must be used inside <QuickAddProvider>");
+  }
+  return ctx;
 }
 
-export function QuickAddExpense({ groups, currentUserId }: QuickAddExpenseProps) {
+interface QuickAddProviderProps {
+  groups: GroupWithMembers[];
+  currentUserId: string;
+  children: React.ReactNode;
+}
+
+/**
+ * Single, app-wide "Add expense" dialog. Every entry point (header button,
+ * mobile nav, group page, empty states) opens this same sheet in place instead
+ * of navigating, so it works from any page and never gets stuck closed.
+ */
+export function QuickAddProvider({ groups, currentUserId, children }: QuickAddProviderProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [groupId, setGroupId] = useState<string | undefined>(undefined);
+  // Remount the form on every open so stale values never leak between uses
+  const [formKey, setFormKey] = useState(0);
 
-  const activeGroups = groups.filter((g) => g.status !== "archived");
-  if (activeGroups.length === 0) return null;
+  const activeGroups = useMemo(() => groups.filter((g) => !isArchived(g)), [groups]);
+  const canAdd = activeGroups.length > 0;
 
-  const handleSubmit = async (data: {
-    groupId: string;
-    description: string;
-    amount: number;
-    category?: string;
-    splitType?: string;
-    payerId: string;
-    expenseDate: string;
-    notes?: string;
-    notifyByEmail?: boolean;
-    splits: { memberId: string; share: number }[];
-  }) => {
+  const openDialog = useCallback(
+    (options?: OpenOptions) => {
+      if (activeGroups.length === 0) {
+        toast.info("Create a group first, then add expenses to it.");
+        router.push("/groups");
+        return;
+      }
+      const requested = options?.groupId;
+      setGroupId(requested && activeGroups.some((g) => g.id === requested) ? requested : undefined);
+      setFormKey((k) => k + 1);
+      setOpen(true);
+    },
+    [activeGroups, router]
+  );
+
+  const handleSubmit = async (data: ExpenseInput) => {
     try {
       await createExpense(data);
-      toast.success("Expense created");
+      toast.success("Expense added");
       setOpen(false);
       router.refresh();
-    } catch {
-      toast.error("Failed to create expense");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to add expense");
     }
   };
 
-  return (
-    <>
-      {/* Desktop FAB - bottom right */}
-      <Button
-        onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-50 hidden size-14 rounded-full shadow-lg md:flex"
-        size="icon-lg"
-        title="Quick add expense"
-      >
-        <Plus className="size-6" />
-      </Button>
+  const value = useMemo(() => ({ open: openDialog, canAdd }), [openDialog, canAdd]);
 
+  return (
+    <QuickAddContext.Provider value={value}>
+      {children}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+        <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>Quick Add Expense</DialogTitle>
-            <DialogDescription>
-              Add a new expense to any group.
-            </DialogDescription>
+            <DialogTitle>Add expense</DialogTitle>
+            <DialogDescription>Record a shared expense and split it with your group.</DialogDescription>
           </DialogHeader>
-          <ExpenseForm
-            groups={groups}
-            currentUserId={currentUserId}
-            onSubmit={handleSubmit}
-            onCancel={() => setOpen(false)}
-          />
+          {open && (
+            <ExpenseForm
+              key={formKey}
+              groups={activeGroups}
+              currentUserId={currentUserId}
+              initialGroupId={groupId}
+              onSubmit={handleSubmit}
+              onCancel={() => setOpen(false)}
+            />
+          )}
         </DialogContent>
       </Dialog>
-    </>
+    </QuickAddContext.Provider>
   );
 }

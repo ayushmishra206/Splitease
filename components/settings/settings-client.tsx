@@ -197,7 +197,7 @@ export function SettingsClient({ profile }: SettingsClientProps) {
       const results = await importUserData(payload);
 
       if (results.errors.length > 0) {
-        toast.error(`Import completed with ${results.errors.length} error(s)`);
+        toast.error(`Import finished with ${results.errors.length} error(s): ${results.errors[0]}`);
       } else {
         toast.success(
           `Imported ${results.imported} group(s)` +
@@ -206,8 +206,8 @@ export function SettingsClient({ profile }: SettingsClientProps) {
               : "")
         );
       }
-    } catch {
-      toast.error("Failed to import data. Check file format.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to import data. Check the file format.");
     } finally {
       setImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = "";

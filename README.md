@@ -6,10 +6,12 @@ A modern expense splitting app built with Next.js, Neon PostgreSQL, and Prisma. 
 
 ### Expense Management
 - **Group Expense Tracking** - Create groups and track shared expenses with multiple split types (equal, percentage, shares, exact)
+- **Multiple Payers** - Record an expense paid by two or three people with the amount each contributed (Splitwise-style)
+- **Group Totals** - Total spent, your share, what you paid and your balance for every group
 - **8 Expense Categories** - Categorize expenses with emoji and color coding
-- **Receipt Upload** - Attach receipt images to expenses via Uploadthing
+- **Receipt Upload** - Attach or photograph receipt images via Uploadthing
 - **Recurring Expenses** - Set up recurring expenses with cron-based auto-creation
-- **Creator-Only Edit/Delete** - Only the expense creator can modify or remove an expense
+- **Shared Editing** - Any group member can edit an expense; the person who added it is notified. Deleting is limited to the creator, a payer, or the group owner
 - **Cursor-based Pagination** - Efficient paginated expense lists with filtering
 
 ### Settlements & Debt
@@ -21,11 +23,12 @@ A modern expense splitting app built with Next.js, Neon PostgreSQL, and Prisma. 
 - **Member Search & Invite** - Search for users and add them to groups with email notifications
 - **Role-based Permissions** - Group owners control settings, members, and archival
 - **Group Archive/Restore** - Archive inactive groups and restore them later
+- **Leave Group / Safe Removal** - Members can only leave or be removed once their balance is settled
 - **Activity Log** - Track all expense and settlement activity within each group
 
 ### Analytics & Data
 - **Analytics Dashboard** - Spending charts, category breakdowns, and group comparison analytics via Recharts
-- **Data Export/Import** - Export human-readable JSON backups and restore from them
+- **Data Export/Import** - Export readable JSON backups (with stable ids) and restore them
 
 ### Authentication & Security
 - **Authentication** - Google OAuth and email/password authentication via NextAuth.js v5
@@ -38,7 +41,7 @@ A modern expense splitting app built with Next.js, Neon PostgreSQL, and Prisma. 
 - **Email Notifications** - Email alerts for group invites, new expenses, settlements, and password resets via Resend
 
 ### UI & Experience
-- **Responsive Mobile Design** - Mobile-first layout with bottom navigation and safe area support
+- **Mobile-first** - Bottom navigation with a one-tap "Add expense" sheet, bottom-sheet dialogs, decimal keypads, camera receipt capture, and iOS safe-area support
 - **Dark Mode** - Full light/dark theme support via next-themes
 
 ## Tech Stack
@@ -107,6 +110,21 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+### Upgrading an existing database
+
+Multi-payer support adds one table, `expense_payers`. Run `npx prisma db push`
+after pulling. No backfill is needed: expenses without payer rows are treated as
+paid in full by their `payer_id`. See `docs/audit/2026-09-08-code-and-ux-audit.md`
+for the optional backfill SQL and the full audit.
+
+### Quality checks
+
+```bash
+npm run lint
+npx tsc --noEmit
+npm test
+```
+
 ### Google OAuth Setup
 
 To enable Google sign-in locally, add `http://localhost:3000/api/auth/callback/google` as an authorized redirect URI in your [Google Cloud Console](https://console.cloud.google.com/apis/credentials).
@@ -135,10 +153,12 @@ app/
 │   └── uploadthing/     # File upload routes
 actions/                 # Server actions (expenses, groups, settlements, auth, etc.)
 components/              # React components (UI, layout, forms, charts)
-lib/                     # Utilities, Prisma client, email templates, helpers
+docs/                    # Product docs, plans and audits
+lib/                     # Utilities, validation, money/date helpers, Prisma client, email
 prisma/                  # Database schema
 public/                  # Static assets, service worker
 types/                   # TypeScript type definitions
+__tests__/               # Vitest unit tests for libraries and server actions
 ```
 
 ## License

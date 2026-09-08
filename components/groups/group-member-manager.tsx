@@ -93,8 +93,8 @@ export function GroupMemberManager({
       toast.success("Member added");
       setSearchResults((prev) => prev.filter((r) => r.id !== userId));
       onUpdate();
-    } catch {
-      toast.error("Failed to add member");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to add member");
     } finally {
       setAddingId(null);
     }
@@ -106,8 +106,8 @@ export function GroupMemberManager({
       await removeGroupMember(groupId, memberId);
       toast.success("Member removed");
       onUpdate();
-    } catch {
-      toast.error("Failed to remove member");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to remove member");
     } finally {
       setRemovingId(null);
     }
@@ -130,13 +130,14 @@ export function GroupMemberManager({
               key={m.memberId}
               className="flex items-center justify-between rounded-lg border p-3"
             >
-              <div className="flex items-center gap-3">
+              <div className="flex min-w-0 items-center gap-3">
                 <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-sm font-medium text-emerald-600 dark:text-emerald-400">
                   {getInitial(m.member.fullName)}
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="truncate text-sm font-medium">
                     {m.member.fullName ?? "Unknown"}
+                    {m.memberId === currentUserId ? " (You)" : ""}
                   </span>
                   {m.role === "owner" && (
                     <Badge variant="secondary" className="text-xs">
@@ -170,7 +171,8 @@ export function GroupMemberManager({
           Add Members
         </h4>
         <Input
-          placeholder="Search by name (min 2 characters)..."
+          placeholder="Search by name or exact email..."
+          autoComplete="off"
           value={searchTerm}
           onChange={(e) => handleSearch(e.target.value)}
         />
