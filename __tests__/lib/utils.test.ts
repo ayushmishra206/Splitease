@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatCurrency, computeEqualSplit, cn } from "@/lib/utils";
+import { formatCurrency, computeEqualSplit, cn, displayName, joinNames } from "@/lib/utils";
 
 describe("cn", () => {
   it("merges class names", () => {
@@ -77,5 +77,38 @@ describe("computeEqualSplit", () => {
 
   it("handles single person", () => {
     expect(computeEqualSplit(100, 1)).toEqual([100]);
+  });
+});
+
+describe("computeEqualSplit rounding", () => {
+  it("always sums exactly to the total in cents", () => {
+    for (const [total, count] of [[100, 3], [0.1, 3], [10, 7], [33.33, 2], [1, 6]] as const) {
+      const shares = computeEqualSplit(total, count);
+      const cents = shares.reduce((s, v) => s + Math.round(v * 100), 0);
+      expect(cents).toBe(Math.round(total * 100));
+      const centShares = shares.map((v) => Math.round(v * 100));
+      expect(Math.max(...centShares) - Math.min(...centShares)).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("returns empty for invalid totals", () => {
+    expect(computeEqualSplit(NaN, 2)).toEqual([]);
+    expect(computeEqualSplit(-1, 2)).toEqual([]);
+  });
+});
+
+describe("displayName / joinNames", () => {
+  it("uses You for the current user", () => {
+    expect(displayName({ id: "me", fullName: "Ayush" }, "me")).toBe("You");
+    expect(displayName({ id: "a", fullName: "Alice" }, "me")).toBe("Alice");
+    expect(displayName({ id: "a", fullName: null }, "me")).toBe("Unknown");
+    expect(displayName(null, "me")).toBe("Unknown");
+  });
+
+  it("joins names naturally", () => {
+    expect(joinNames([])).toBe("");
+    expect(joinNames(["A"])).toBe("A");
+    expect(joinNames(["A", "B"])).toBe("A and B");
+    expect(joinNames(["A", "B", "C"])).toBe("A, B and C");
   });
 });

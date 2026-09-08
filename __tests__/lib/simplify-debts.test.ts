@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { simplifyDebts, computeNetBalances } from "@/lib/simplify-debts";
+import { simplifyDebts, computeNetBalances, resolvePayers, balancesForUser } from "@/lib/simplify-debts";
 
 describe("simplifyDebts", () => {
   it("returns empty for empty object", () => {
@@ -139,5 +139,105 @@ describe("computeNetBalances", () => {
     expect(result.a).toBe(15);
     expect(result.b).toBe(-5);
     expect(result.c).toBe(-10);
+  });
+});
+
+describe("computeNetBalances with multiple payers", () => {
+  it("credits each payer with what they actually paid", () => {
+    const result = computeNetBalances(
+      [
+        {
+          payerId: "a",
+          amount: 90,
+          payers: [
+            { memberId: "a", amount: 60 },
+            { memberId: "b", amount: 30 },
+          ],
+          splits: [
+            { memberId: "a", share: 30 },
+            { memberId: "b", share: 30 },
+            { memberId: "c", share: 30 },
+          ],
+        },
+      ],
+      []
+    );
+    expect(result.a).toBe(30);
+    expect(result.b).toBe(0);
+    expect(result.c).toBe(-30);
+  });
+
+  it("falls back to payerId when the payer list is empty", () => {
+    const result = computeNetBalances(
+      [
+        {
+          payerId: "a",
+          amount: 40,
+          payers: [],
+          splits: [
+            { memberId: "a", share: 20 },
+            { memberId: "b", share: 20 },
+          ],
+        },
+      ],
+      []
+    );
+    expect(result.a).toBe(20);
+    expect(result.b).toBe(-20);
+  });
+
+  it("never nets to a non-zero total", () => {
+    const result = computeNetBalances(
+      [
+        {
+          payerId: "a",
+          amount: 100,
+          payers: [
+            { memberId: "a", amount: 70 },
+            { memberId: "c", amount: 30 },
+          ],
+          splits: [
+            { memberId: "a", share: 25 },
+            { memberId: "b", share: 25 },
+            { memberId: "c", share: 25 },
+            { memberId: "d", share: 25 },
+          ],
+        },
+      ],
+      [{ fromMember: "b", toMember: "a", amount: 10 }]
+    );
+    const total = Object.values(result).reduce((s, v) => s + v, 0);
+    expect(total).toBeCloseTo(0);
+  });
+});
+
+describe("resolvePayers", () => {
+  it("prefers the explicit payer list", () => {
+    expect(resolvePayers({ payerId: "a", amount: 10, payers: [{ memberId: "b", amount: 10 }] })).toEqual([
+      { memberId: "b", amount: 10 },
+    ]);
+  });
+
+  it("returns nothing when there is no payer at all", () => {
+    expect(resolvePayers({ payerId: null, amount: 10, payers: [] })).toEqual([]);
+  });
+});
+
+describe("balancesForUser", () => {
+  it("lists who owes the user and whom the user owes", () => {
+    const net = { me: 30, a: -20, b: -10 };
+    expect(balancesForUser(net, "me")).toEqual([
+      { memberId: "a", amount: 20 },
+      { memberId: "b", amount: 10 },
+    ]);
+  });
+
+  it("returns negative amounts when the user owes", () => {
+    const net = { me: -15, a: 15 };
+    expect(balancesForUser(net, "me")).toEqual([{ memberId: "a", amount: -15 }]);
+  });
+
+  it("returns empty when the user is settled", () => {
+    expect(balancesForUser({ me: 0, a: 5, b: -5 }, "me")).toEqual([]);
   });
 });

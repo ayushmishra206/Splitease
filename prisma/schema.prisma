@@ -22,6 +22,7 @@ model User {
   paidExpenses      Expense[]      @relation("ExpensePayer")
   createdExpenses   Expense[]      @relation("ExpenseCreator")
   expenseSplits     ExpenseSplit[]
+  expensePayments   ExpensePayer[]
   settlementsFrom   Settlement[]   @relation("SettlementFrom")
   settlementsTo     Settlement[]   @relation("SettlementTo")
   resetTokens       PasswordResetToken[]
@@ -86,6 +87,7 @@ model Expense {
   payer     User?          @relation("ExpensePayer", fields: [payerId], references: [id], onDelete: SetNull)
   createdBy User?          @relation("ExpenseCreator", fields: [createdById], references: [id], onDelete: SetNull)
   splits    ExpenseSplit[]
+  payers    ExpensePayer[]
 
   @@index([groupId, createdAt])
   @@index([payerId])
@@ -105,6 +107,23 @@ model ExpenseSplit {
   @@index([expenseId])
   @@index([memberId])
   @@map("expense_splits")
+}
+
+/// One row per person who paid part of an expense. Amounts sum to Expense.amount.
+/// Expenses created before multi-payer support have no rows here; `payerId` is
+/// treated as having paid the full amount in that case (see lib/expense-payers.ts).
+model ExpensePayer {
+  id        String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  expenseId String  @map("expense_id") @db.Uuid
+  memberId  String  @map("member_id") @db.Uuid
+  amount    Decimal @db.Decimal(12, 2)
+
+  expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  member  User    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([expenseId, memberId])
+  @@index([memberId])
+  @@map("expense_payers")
 }
 
 model Settlement {

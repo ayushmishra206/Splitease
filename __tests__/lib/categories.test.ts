@@ -12,7 +12,7 @@ describe("CATEGORIES", () => {
   });
 
   it("each category has emoji, label, and color", () => {
-    for (const [key, value] of Object.entries(CATEGORIES)) {
+    for (const value of Object.values(CATEGORIES)) {
       expect(value.emoji).toBeTruthy();
       expect(value.label).toBeTruthy();
       expect(value.color).toBeTruthy();

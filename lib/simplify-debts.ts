@@ -57,28 +57,49 @@ export function simplifyDebts(
   return results;
 }
 
+export type BalanceExpense = {
+  payerId: string | null;
+  amount: number;
+  /** Who actually paid and how much. When absent or empty, `payerId` paid `amount`. */
+  payers?: Array<{ memberId: string; amount: number }>;
+  splits: Array<{ memberId: string; share: number }>;
+};
+
+export type BalanceSettlement = {
+  fromMember: string;
+  toMember: string;
+  amount: number;
+};
+
+/**
+ * Resolve who paid for an expense. Supports both the legacy single `payerId`
+ * and the multi-payer `payers` list.
+ */
+export function resolvePayers(
+  expense: Pick<BalanceExpense, "payerId" | "amount" | "payers">
+): Array<{ memberId: string; amount: number }> {
+  if (expense.payers && expense.payers.length > 0) return expense.payers;
+  if (expense.payerId) return [{ memberId: expense.payerId, amount: expense.amount }];
+  return [];
+}
+
 /**
  * Build net balances for all members in a group from expenses and settlements.
  * Positive balance = member is owed money, negative = member owes money.
  */
 export function computeNetBalances(
-  expenses: Array<{
-    payerId: string | null;
-    amount: number;
-    splits: Array<{ memberId: string; share: number }>;
-  }>,
-  settlements: Array<{
-    fromMember: string;
-    toMember: string;
-    amount: number;
-  }>
+  expenses: BalanceExpense[],
+  settlements: BalanceSettlement[]
 ): Record<string, number> {
   const net: Record<string, number> = {};
 
   for (const expense of expenses) {
-    if (!expense.payerId) continue;
-    // Payer is owed the total, each participant owes their share
-    net[expense.payerId] = (net[expense.payerId] ?? 0) + expense.amount;
+    const payers = resolvePayers(expense);
+    if (payers.length === 0) continue;
+    // Each payer is owed what they paid, each participant owes their share
+    for (const payer of payers) {
+      net[payer.memberId] = (net[payer.memberId] ?? 0) + payer.amount;
+    }
     for (const split of expense.splits) {
       net[split.memberId] = (net[split.memberId] ?? 0) - split.share;
     }
@@ -91,4 +112,20 @@ export function computeNetBalances(
   }
 
   return net;
+}
+
+/**
+ * Balances between one member and everyone else, derived from the simplified
+ * transfer plan. Positive = they owe `userId`, negative = `userId` owes them.
+ */
+export function balancesForUser(
+  netBalances: Record<string, number>,
+  userId: string
+): Array<{ memberId: string; amount: number }> {
+  const out: Array<{ memberId: string; amount: number }> = [];
+  for (const t of simplifyDebts(netBalances)) {
+    if (t.to === userId) out.push({ memberId: t.from, amount: t.amount });
+    else if (t.from === userId) out.push({ memberId: t.to, amount: -t.amount });
+  }
+  return out.sort((a, b) => b.amount - a.amount);
 }

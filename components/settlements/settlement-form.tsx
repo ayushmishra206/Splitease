@@ -4,7 +4,13 @@ import { useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { format } from "date-fns";
+import { Users } from "lucide-react";
+import { todayIso } from "@/lib/dates";
+import { isValidMoney, roundMoney } from "@/lib/money";
+import { displayName } from "@/lib/utils";
+import type { SettlementInput } from "@/lib/validation";
+import type { GroupWithMembers } from "@/lib/types";
+import { isArchived } from "@/lib/types";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,32 +24,32 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const schema = z.object({
-  groupId: z.string().min(1, "Select a group"),
-  fromMember: z.string().min(1, "Select who is paying"),
-  toMember: z.string().min(1, "Select who is receiving"),
-  amount: z.number().positive("Amount must be positive"),
-  settlementDate: z.string().min(1, "Select a date"),
-  notes: z.string().optional(),
-});
+const schema = z
+  .object({
+    groupId: z.string().min(1, "Select a group"),
+    fromMember: z.string().min(1, "Select who paid"),
+    toMember: z.string().min(1, "Select who received the payment"),
+    amount: z
+      .number({ message: "Enter an amount" })
+      .positive("Amount must be greater than 0")
+      .refine(isValidMoney, "Use at most 2 decimal places"),
+    settlementDate: z.string().min(1, "Select a date"),
+    notes: z.string().max(240, "Keep notes under 240 characters").optional(),
+  })
+  .refine((v) => v.fromMember !== v.toMember, {
+    path: ["toMember"],
+    message: "Payer and receiver must be different",
+  });
 
 type FormValues = z.infer<typeof schema>;
-
-type GroupWithMembers = {
-  id: string;
-  name: string;
-  currency: string;
-  members: Array<{
-    memberId: string;
-    member: { id: string; fullName: string | null };
-  }>;
-};
 
 interface SettlementFormProps {
   groups: GroupWithMembers[];
   currentUserId: string;
-  defaultValues?: Partial<FormValues>;
-  onSubmit: (data: FormValues) => Promise<void>;
+  /** Hide the group picker (the form is used inside one group). */
+  lockGroup?: boolean;
+  defaultValues?: Partial<SettlementInput>;
+  onSubmit: (data: SettlementInput) => Promise<void>;
   onCancel: () => void;
   submitLabel?: string;
 }
@@ -51,166 +57,189 @@ interface SettlementFormProps {
 export function SettlementForm({
   groups,
   currentUserId,
+  lockGroup = false,
   defaultValues,
   onSubmit,
   onCancel,
-  submitLabel = "Record Settlement",
+  submitLabel = "Record settlement",
 }: SettlementFormProps) {
   const [submitting, setSubmitting] = useState(false);
+  const isEditing = !!defaultValues?.fromMember && !!defaultValues?.toMember && defaultValues.amount !== undefined;
+
+  const selectableGroups = useMemo(
+    () => groups.filter((g) => !isArchived(g) || g.id === defaultValues?.groupId),
+    [groups, defaultValues?.groupId]
+  );
 
   const form = useForm<FormValues>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(schema) as any,
+    resolver: zodResolver(schema),
     defaultValues: {
-      groupId: defaultValues?.groupId ?? (groups.length === 1 ? groups[0].id : ""),
+      groupId: defaultValues?.groupId ?? (selectableGroups.length === 1 ? selectableGroups[0].id : ""),
       fromMember: defaultValues?.fromMember ?? currentUserId,
       toMember: defaultValues?.toMember ?? "",
-      amount: defaultValues?.amount ?? 0,
-      settlementDate: defaultValues?.settlementDate ?? format(new Date(), "yyyy-MM-dd"),
+      amount: defaultValues?.amount,
+      settlementDate: defaultValues?.settlementDate ?? todayIso(),
       notes: defaultValues?.notes ?? "",
     },
   });
 
   const selectedGroupId = form.watch("groupId");
   const fromMember = form.watch("fromMember");
+  const toMember = form.watch("toMember");
 
   const selectedGroup = useMemo(
     () => groups.find((g) => g.id === selectedGroupId),
     [groups, selectedGroupId]
   );
-
   const members = selectedGroup?.members ?? [];
+  const memberLabel = (memberId: string) =>
+    displayName(members.find((m) => m.memberId === memberId)?.member, currentUserId);
 
   const handleSubmit = async (data: FormValues) => {
-    if (data.fromMember === data.toMember) {
-      form.setError("toMember", { message: "Payer and receiver must be different" });
-      return;
-    }
     setSubmitting(true);
     try {
-      await onSubmit(data);
+      await onSubmit({
+        groupId: data.groupId,
+        fromMember: data.fromMember,
+        toMember: data.toMember,
+        amount: roundMoney(data.amount),
+        settlementDate: data.settlementDate,
+        notes: data.notes?.trim() || undefined,
+      });
     } finally {
       setSubmitting(false);
     }
   };
 
+  const errors = form.formState.errors;
+  const showGroupPicker = !lockGroup && selectableGroups.length > 1;
+
   return (
     <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-      {/* Group */}
-      <div className="space-y-2">
-        <Label>Group</Label>
-        <Select
-          value={selectedGroupId}
-          onValueChange={(v) => {
-            form.setValue("groupId", v);
-            form.setValue("fromMember", currentUserId);
-            form.setValue("toMember", "");
-          }}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select group" />
-          </SelectTrigger>
-          <SelectContent>
-            {groups.map((g) => (
-              <SelectItem key={g.id} value={g.id}>
-                {g.name} ({g.currency})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {form.formState.errors.groupId && (
-          <p className="text-sm text-destructive">{form.formState.errors.groupId.message}</p>
-        )}
-      </div>
+      {showGroupPicker ? (
+        <div className="space-y-2">
+          <Label htmlFor="settlement-group">Group</Label>
+          <Select
+            value={selectedGroupId}
+            onValueChange={(v) => {
+              form.setValue("groupId", v, { shouldValidate: true });
+              form.setValue("fromMember", currentUserId);
+              form.setValue("toMember", "");
+            }}
+          >
+            <SelectTrigger id="settlement-group" className="w-full">
+              <SelectValue placeholder="Select group" />
+            </SelectTrigger>
+            <SelectContent>
+              {selectableGroups.map((g) => (
+                <SelectItem key={g.id} value={g.id}>
+                  {g.name} ({g.currency})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {errors.groupId && <p className="text-sm text-destructive">{errors.groupId.message}</p>}
+        </div>
+      ) : selectedGroup ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Users className="size-4" />
+          <span className="font-medium text-foreground">{selectedGroup.name}</span>
+          <span>({selectedGroup.currency})</span>
+        </div>
+      ) : null}
 
-      {/* From / To */}
       {selectedGroup && (
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3">
           <div className="space-y-2">
-            <Label>From (Payer)</Label>
+            <Label htmlFor="settlement-from">Who paid</Label>
             <Select
               value={fromMember}
-              onValueChange={(v) => form.setValue("fromMember", v)}
+              onValueChange={(v) => {
+                form.setValue("fromMember", v, { shouldValidate: true });
+                if (v === toMember) form.setValue("toMember", "");
+              }}
             >
-              <SelectTrigger>
-                <SelectValue placeholder="Who paid" />
+              <SelectTrigger id="settlement-from" className="w-full">
+                <SelectValue placeholder="Payer" />
               </SelectTrigger>
               <SelectContent>
                 {members.map((m) => (
                   <SelectItem key={m.memberId} value={m.memberId}>
-                    {m.memberId === currentUserId ? "You" : m.member.fullName ?? "Unknown"}
+                    {memberLabel(m.memberId)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {form.formState.errors.fromMember && (
-              <p className="text-sm text-destructive">{form.formState.errors.fromMember.message}</p>
-            )}
+            {errors.fromMember && <p className="text-sm text-destructive">{errors.fromMember.message}</p>}
           </div>
 
           <div className="space-y-2">
-            <Label>To (Receiver)</Label>
-            <Select
-              value={form.watch("toMember")}
-              onValueChange={(v) => form.setValue("toMember", v)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Who received" />
+            <Label htmlFor="settlement-to">Who received</Label>
+            <Select value={toMember} onValueChange={(v) => form.setValue("toMember", v, { shouldValidate: true })}>
+              <SelectTrigger id="settlement-to" className="w-full">
+                <SelectValue placeholder="Receiver" />
               </SelectTrigger>
               <SelectContent>
                 {members
                   .filter((m) => m.memberId !== fromMember)
                   .map((m) => (
                     <SelectItem key={m.memberId} value={m.memberId}>
-                      {m.memberId === currentUserId ? "You" : m.member.fullName ?? "Unknown"}
+                      {memberLabel(m.memberId)}
                     </SelectItem>
                   ))}
               </SelectContent>
             </Select>
-            {form.formState.errors.toMember && (
-              <p className="text-sm text-destructive">{form.formState.errors.toMember.message}</p>
-            )}
+            {errors.toMember && <p className="text-sm text-destructive">{errors.toMember.message}</p>}
           </div>
         </div>
       )}
 
-      {/* Amount + Date */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <Label>Amount</Label>
+          <Label htmlFor="settlement-amount">Amount{selectedGroup ? ` (${selectedGroup.currency})` : ""}</Label>
           <Input
+            id="settlement-amount"
             type="number"
+            inputMode="decimal"
             step="0.01"
             min="0.01"
             placeholder="0.00"
-            {...form.register("amount")}
+            className="font-mono"
+            {...form.register("amount", { valueAsNumber: true })}
+            aria-invalid={!!errors.amount}
           />
-          {form.formState.errors.amount && (
-            <p className="text-sm text-destructive">{form.formState.errors.amount.message}</p>
-          )}
+          {errors.amount && <p className="text-sm text-destructive">{errors.amount.message}</p>}
         </div>
         <div className="space-y-2">
-          <Label>Date</Label>
-          <Input type="date" {...form.register("settlementDate")} />
-          {form.formState.errors.settlementDate && (
-            <p className="text-sm text-destructive">{form.formState.errors.settlementDate.message}</p>
-          )}
+          <Label htmlFor="settlement-date">Date</Label>
+          <Input
+            id="settlement-date"
+            type="date"
+            max={todayIso()}
+            {...form.register("settlementDate")}
+            aria-invalid={!!errors.settlementDate}
+          />
+          {errors.settlementDate && <p className="text-sm text-destructive">{errors.settlementDate.message}</p>}
         </div>
       </div>
 
-      {/* Notes */}
       <div className="space-y-2">
-        <Label>Notes (optional)</Label>
-        <Textarea rows={2} placeholder="Add a note..." {...form.register("notes")} />
+        <Label htmlFor="settlement-notes">Notes (optional)</Label>
+        <Textarea
+          id="settlement-notes"
+          rows={2}
+          maxLength={240}
+          placeholder="e.g. Cash, bank transfer, UPI"
+          {...form.register("notes")}
+        />
       </div>
 
-      {/* Buttons */}
-      <div className="flex justify-end gap-3 pt-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
+      <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+        <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto">
           Cancel
         </Button>
-        <Button type="submit" disabled={submitting}>
-          {submitting ? "Saving..." : submitLabel}
+        <Button type="submit" disabled={submitting} className="w-full sm:w-auto">
+          {submitting ? "Saving..." : isEditing ? submitLabel : submitLabel}
         </Button>
       </div>
     </form>

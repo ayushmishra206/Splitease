@@ -5,6 +5,11 @@ import { getAuthenticatedUser } from "@/lib/auth";
 
 export type AnalyticsData = {
   currency: string;
+  /** Sum of all expenses in the selected scope. */
+  totalSpent: number;
+  /** Sum of the current user's shares in the selected scope. */
+  yourShare: number;
+  expenseCount: number;
   monthlySpending: Array<{ month: string; total: number }>;
   categoryBreakdown: Array<{ category: string; total: number }>;
   groupComparison: Array<{ groupId: string; groupName: string; total: number }>;
@@ -24,7 +29,7 @@ export async function fetchAnalyticsData(groupId?: string): Promise<AnalyticsDat
     : memberGroupIds;
 
   if (groupIds.length === 0) {
-    return { currency: "USD", monthlySpending: [], categoryBreakdown: [], groupComparison: [], topSpenders: [] };
+    return { currency: "USD", totalSpent: 0, yourShare: 0, expenseCount: 0, monthlySpending: [], categoryBreakdown: [], groupComparison: [], topSpenders: [] };
   }
 
   const expenses = await prisma.expense.findMany({
@@ -32,6 +37,8 @@ export async function fetchAnalyticsData(groupId?: string): Promise<AnalyticsDat
     include: {
       group: { select: { id: true, name: true, currency: true } },
       payer: { select: { id: true, fullName: true } },
+      payers: { select: { amount: true, member: { select: { id: true, fullName: true } } } },
+      splits: { where: { memberId: user.id }, select: { share: true } },
     },
     orderBy: { expenseDate: "asc" },
   });
@@ -79,18 +86,41 @@ export async function fetchAnalyticsData(groupId?: string): Promise<AnalyticsDat
     .map(([gId, { name, total }]) => ({ groupId: gId, groupName: name, total: Math.round(total * 100) / 100 }))
     .sort((a, b) => b.total - a.total);
 
-  // Top spenders
+  // Top spenders — credit each payer with what they actually paid
   const spenderMap = new Map<string, { name: string; total: number }>();
   for (const e of expenses) {
-    if (!e.payer) continue;
-    const existing = spenderMap.get(e.payer.id) ?? { name: e.payer.fullName ?? "Unknown", total: 0 };
-    existing.total += parseFloat(String(e.amount));
-    spenderMap.set(e.payer.id, existing);
+    const contributions =
+      e.payers.length > 0
+        ? e.payers.map((p) => ({ id: p.member.id, name: p.member.fullName, amount: parseFloat(String(p.amount)) }))
+        : e.payer
+          ? [{ id: e.payer.id, name: e.payer.fullName, amount: parseFloat(String(e.amount)) }]
+          : [];
+    for (const c of contributions) {
+      const existing = spenderMap.get(c.id) ?? { name: c.name ?? "Unknown", total: 0 };
+      existing.total += c.amount;
+      spenderMap.set(c.id, existing);
+    }
   }
   const topSpenders = Array.from(spenderMap.entries())
     .map(([uId, { name, total }]) => ({ userId: uId, userName: name, total: Math.round(total * 100) / 100 }))
     .sort((a, b) => b.total - a.total)
     .slice(0, 10);
 
-  return { currency, monthlySpending, categoryBreakdown, groupComparison, topSpenders };
+  let totalSpent = 0;
+  let yourShare = 0;
+  for (const e of expenses) {
+    totalSpent += parseFloat(String(e.amount));
+    for (const s of e.splits) yourShare += parseFloat(String(s.share));
+  }
+
+  return {
+    currency,
+    totalSpent: Math.round(totalSpent * 100) / 100,
+    yourShare: Math.round(yourShare * 100) / 100,
+    expenseCount: expenses.length,
+    monthlySpending,
+    categoryBreakdown,
+    groupComparison,
+    topSpenders,
+  };
 }

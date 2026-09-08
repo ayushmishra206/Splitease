@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { notifyGroupMembers } from "@/lib/push";
+import { computeNextOccurrence } from "@/lib/expenses-shared";
 
 export async function GET(request: Request) {
   // Verify cron secret
   const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -14,9 +15,11 @@ export async function GET(request: Request) {
     where: {
       isRecurring: true,
       nextOccurrence: { lte: now },
+      group: { status: "active" },
     },
     include: {
       splits: true,
+      payers: true,
       group: {
         select: {
           name: true,
@@ -28,52 +31,88 @@ export async function GET(request: Request) {
   });
 
   let created = 0;
+  let stopped = 0;
   for (const expense of dueExpenses) {
-    // Create duplicate expense
-    await prisma.expense.create({
-      data: {
-        groupId: expense.groupId,
-        payerId: expense.payerId,
-        description: expense.description,
-        amount: expense.amount,
-        category: expense.category,
-        splitType: expense.splitType,
-        expenseDate: now,
-        notes: expense.notes,
-        splits: {
-          create: expense.splits.map((s) => ({
-            memberId: s.memberId,
-            share: s.share,
-          })),
-        },
-      },
-    });
+    if (!expense.nextOccurrence || !expense.recurrenceRule) continue;
 
-    // Notify all group members about the recurring expense
-    const memberIds = expense.group.members.map((m) => m.memberId);
+    // Create the new occurrence dated on the scheduled day, not when the cron ran
+    const occurrenceDate = new Date(expense.nextOccurrence);
+    const memberIds = new Set(expense.group.members.map((m) => m.memberId));
     const amountStr = parseFloat(String(expense.amount)).toFixed(2);
-    void notifyGroupMembers("", memberIds, {
+
+    // A copy is only valid when every participant and payer is still in the
+    // group; dropping anyone would leave splits that no longer sum to the
+    // amount. Stop the recurrence instead and tell the group why.
+    const everyoneStillHere =
+      expense.splits.length > 0 &&
+      expense.splits.every((s) => memberIds.has(s.memberId)) &&
+      expense.payers.every((p) => memberIds.has(p.memberId)) &&
+      (expense.payers.length > 0 || (expense.payerId !== null && memberIds.has(expense.payerId)));
+    const actorId = expense.createdById ?? expense.payerId ?? [...memberIds][0];
+
+    if (!everyoneStillHere) {
+      await prisma.$transaction([
+        prisma.expense.update({
+          where: { id: expense.id },
+          data: { isRecurring: false, nextOccurrence: null },
+        }),
+        ...(actorId
+          ? [
+              prisma.activityLog.create({
+                data: {
+                  groupId: expense.groupId,
+                  userId: actorId,
+                  action: "updated",
+                  entityType: "expense",
+                  description: `Stopped repeating "${expense.description}" because a participant or payer is no longer in the group`,
+                },
+              }),
+            ]
+          : []),
+      ]);
+      stopped++;
+      continue;
+    }
+
+    await prisma.$transaction([
+      prisma.expense.create({
+        data: {
+          groupId: expense.groupId,
+          payerId: expense.payerId,
+          createdById: expense.createdById,
+          description: expense.description,
+          amount: expense.amount,
+          category: expense.category,
+          splitType: expense.splitType,
+          expenseDate: occurrenceDate,
+          notes: expense.notes,
+          splits: { create: expense.splits.map((s) => ({ memberId: s.memberId, share: s.share })) },
+          payers: { create: expense.payers.map((p) => ({ memberId: p.memberId, amount: p.amount })) },
+        },
+      }),
+      prisma.expense.update({
+        where: { id: expense.id },
+        data: { nextOccurrence: computeNextOccurrence(occurrenceDate, expense.recurrenceRule) },
+      }),
+      prisma.activityLog.create({
+        data: {
+          groupId: expense.groupId,
+          userId: actorId ?? expense.splits[0].memberId,
+          action: "created",
+          entityType: "expense",
+          description: `Recurring expense "${expense.description}" — ${parseFloat(String(expense.amount)).toFixed(2)} ${expense.group.currency}`,
+        },
+      }),
+    ]);
+
+    void notifyGroupMembers("", [...memberIds], {
       title: `Recurring expense in ${expense.group.name}`,
       body: `"${expense.description}" — ${amountStr} ${expense.group.currency}`,
       url: `/groups/${expense.groupId}`,
     });
 
-    // Compute next occurrence
-    const nextDate = new Date(expense.nextOccurrence!);
-    switch (expense.recurrenceRule) {
-      case "weekly": nextDate.setDate(nextDate.getDate() + 7); break;
-      case "biweekly": nextDate.setDate(nextDate.getDate() + 14); break;
-      case "monthly": nextDate.setMonth(nextDate.getMonth() + 1); break;
-      case "yearly": nextDate.setFullYear(nextDate.getFullYear() + 1); break;
-    }
-
-    await prisma.expense.update({
-      where: { id: expense.id },
-      data: { nextOccurrence: nextDate },
-    });
-
     created++;
   }
 
-  return NextResponse.json({ created });
+  return NextResponse.json({ created, stopped });
 }

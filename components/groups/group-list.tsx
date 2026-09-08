@@ -3,18 +3,21 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createGroup, updateGroup, deleteGroup } from "@/actions/groups";
+import { createGroup, updateGroup, deleteGroup, leaveGroup } from "@/actions/groups";
 import { toast } from "sonner";
 import {
   Archive,
-  Calendar,
   Crown,
+  LogOut,
   Pencil,
   Plus,
+  Receipt,
   Trash2,
   Users,
   UsersRound,
 } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
+import type { GroupWithMembers } from "@/lib/types";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,39 +49,15 @@ import {
 import { GroupForm } from "./group-form";
 import { GroupMemberManager } from "./group-member-manager";
 
-type GroupWithMembers = {
-  id: string;
-  name: string;
-  description: string | null;
-  currency: string;
-  status: string;
-  ownerId: string;
-  createdAt: Date;
-  updatedAt: Date;
-  owner: {
-    id: string;
-    fullName: string | null;
-    avatarUrl: string | null;
-  };
-  members: Array<{
-    memberId: string;
-    role: string;
-    groupId: string;
-    joinedAt: Date;
-    member: {
-      id: string;
-      fullName: string | null;
-      avatarUrl: string | null;
-    };
-  }>;
-};
+type GroupTotals = Record<string, { totalSpent: number; expenseCount: number }>;
 
 interface GroupListProps {
   groups: GroupWithMembers[];
+  totals: GroupTotals;
   currentUserId: string;
 }
 
-export function GroupList({ groups, currentUserId }: GroupListProps) {
+export function GroupList({ groups, totals, currentUserId }: GroupListProps) {
   const router = useRouter();
   const [createOpen, setCreateOpen] = useState(false);
   const [editGroup, setEditGroup] = useState<GroupWithMembers | null>(null);
@@ -89,6 +68,8 @@ export function GroupList({ groups, currentUserId }: GroupListProps) {
     null
   );
   const [deleting, setDeleting] = useState(false);
+  const [leaveTarget, setLeaveTarget] = useState<GroupWithMembers | null>(null);
+  const [leaving, setLeaving] = useState(false);
 
   const activeGroups = groups.filter((g) => g.status !== "archived");
   const archivedGroups = groups.filter((g) => g.status === "archived");
@@ -103,8 +84,8 @@ export function GroupList({ groups, currentUserId }: GroupListProps) {
       toast.success("Group created");
       setCreateOpen(false);
       router.refresh();
-    } catch {
-      toast.error("Failed to create group");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to create group");
     }
   };
 
@@ -119,8 +100,8 @@ export function GroupList({ groups, currentUserId }: GroupListProps) {
       toast.success("Group updated");
       setEditGroup(null);
       router.refresh();
-    } catch {
-      toast.error("Failed to update group");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update group");
     }
   };
 
@@ -132,19 +113,32 @@ export function GroupList({ groups, currentUserId }: GroupListProps) {
       toast.success("Group deleted");
       setDeleteTarget(null);
       router.refresh();
-    } catch {
-      toast.error("Failed to delete group");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete group");
     } finally {
       setDeleting(false);
     }
   };
 
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+  const handleLeave = async () => {
+    if (!leaveTarget) return;
+    setLeaving(true);
+    try {
+      await leaveGroup(leaveTarget.id);
+      toast.success(`You left ${leaveTarget.name}`);
+      setLeaveTarget(null);
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not leave group");
+    } finally {
+      setLeaving(false);
+    }
+  };
+
+  const totalLabel = (group: GroupWithMembers) => {
+    const t = totals[group.id];
+    if (!t || t.expenseCount === 0) return "No expenses yet";
+    return `${formatCurrency(t.totalSpent, group.currency)} · ${t.expenseCount} expense${t.expenseCount === 1 ? "" : "s"}`;
   };
 
   return (
@@ -152,10 +146,10 @@ export function GroupList({ groups, currentUserId }: GroupListProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold">Groups</h1>
+          <h1 className="text-xl font-semibold sm:text-2xl">Groups</h1>
           <Badge variant="secondary">{activeGroups.length}</Badge>
         </div>
-        <Button onClick={() => setCreateOpen(true)} className="hidden lg:flex">
+        <Button onClick={() => setCreateOpen(true)} className="hidden md:inline-flex">
           <Plus className="size-4" />
           New Group
         </Button>
@@ -163,7 +157,7 @@ export function GroupList({ groups, currentUserId }: GroupListProps) {
 
       {/* Group grid */}
       {activeGroups.length === 0 && archivedGroups.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border bg-card p-16 text-center">
+        <div className="rounded-xl border border-dashed border-border bg-card p-10 text-center sm:p-16">
           <UsersRound className="mx-auto size-12 text-muted-foreground/50" />
           <h2 className="mt-4 text-lg font-semibold">No groups yet</h2>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -175,13 +169,13 @@ export function GroupList({ groups, currentUserId }: GroupListProps) {
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
           {activeGroups.map((group) => {
             const isOwner = group.ownerId === currentUserId;
 
             return (
-              <Card key={group.id} className="gap-4 hover:shadow-md hover:-translate-y-0.5 transition-all">
-                <Link href={`/groups/${group.id}`}>
+              <Card key={group.id} className="gap-4 py-5 transition-all hover:-translate-y-0.5 hover:shadow-md">
+                <Link href={`/groups/${group.id}`} className="block">
                   <CardHeader className="pb-0">
                     <div className="flex items-start justify-between">
                       <div className="min-w-0 flex-1">
@@ -200,17 +194,17 @@ export function GroupList({ groups, currentUserId }: GroupListProps) {
                     </div>
                   </CardHeader>
 
-                  <CardContent className="space-y-3">
+                  <CardContent className="space-y-2 pt-3">
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <span className="flex items-center gap-1.5">
                         <Users className="size-3.5" />
                         {group.members.length}{" "}
                         {group.members.length === 1 ? "member" : "members"}
                       </span>
-                      <span className="flex items-center gap-1.5">
-                        <Calendar className="size-3.5" />
-                        {formatDate(group.createdAt)}
-                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-sm">
+                      <Receipt className="size-3.5 text-muted-foreground" />
+                      <span className="font-medium">{totalLabel(group)}</span>
                     </div>
 
                     {isOwner && (
@@ -253,14 +247,25 @@ export function GroupList({ groups, currentUserId }: GroupListProps) {
                       </>
                     )}
                     {!isOwner && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setMembersGroup(group)}
-                      >
-                        <Users className="size-3.5" />
-                        View Members
-                      </Button>
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setMembersGroup(group)}
+                        >
+                          <Users className="size-3.5" />
+                          Members
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="ml-auto text-muted-foreground"
+                          onClick={() => setLeaveTarget(group)}
+                        >
+                          <LogOut className="size-3.5" />
+                          Leave
+                        </Button>
+                      </>
                     )}
                   </div>
                 </CardContent>
@@ -275,11 +280,11 @@ export function GroupList({ groups, currentUserId }: GroupListProps) {
           <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
             Archived
           </h2>
-          <div className="grid grid-cols-1 gap-4 opacity-60 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 opacity-70 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
             {archivedGroups.map((group) => {
               return (
-                <Card key={group.id} className="gap-4">
-                  <Link href={`/groups/${group.id}`}>
+                <Card key={group.id} className="gap-4 py-5">
+                  <Link href={`/groups/${group.id}`} className="block">
                     <CardHeader className="pb-0">
                       <div className="flex items-start justify-between">
                         <div className="min-w-0 flex-1">
@@ -302,6 +307,10 @@ export function GroupList({ groups, currentUserId }: GroupListProps) {
                           Archived
                         </span>
                       </div>
+                      <div className="flex items-center gap-1.5 text-sm">
+                        <Receipt className="size-3.5 text-muted-foreground" />
+                        <span className="font-medium">{totalLabel(group)}</span>
+                      </div>
                     </CardContent>
                   </Link>
                 </Card>
@@ -313,11 +322,12 @@ export function GroupList({ groups, currentUserId }: GroupListProps) {
 
       {/* Mobile FAB */}
       <Button
-        className="fixed bottom-20 right-4 z-40 size-14 rounded-full shadow-lg lg:hidden"
+        className="fixed right-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-30 size-14 rounded-full shadow-lg md:hidden"
         size="icon-lg"
+        aria-label="Create group"
         onClick={() => setCreateOpen(true)}
       >
-        <Plus className="size-6" />
+        <UsersRound className="size-6" />
       </Button>
 
       {/* Create dialog */}
@@ -388,15 +398,35 @@ export function GroupList({ groups, currentUserId }: GroupListProps) {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Leave confirmation */}
+      <AlertDialog open={!!leaveTarget} onOpenChange={(v) => !v && setLeaveTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Leave &quot;{leaveTarget?.name}&quot;?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You will stop seeing this group&apos;s expenses. You can only leave once your balance is settled.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={handleLeave} disabled={leaving}>
+              {leaving ? "Leaving..." : "Leave group"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Members dialog */}
       <Dialog open={!!membersGroup} onOpenChange={() => setMembersGroup(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              Manage Members - {membersGroup?.name}
+              {membersGroup?.ownerId === currentUserId ? "Manage members" : "Members"} · {membersGroup?.name}
             </DialogTitle>
             <DialogDescription>
-              Add or remove members from this group.
+              {membersGroup?.ownerId === currentUserId
+                ? "Add or remove members. Members with a balance must settle up first."
+                : "People in this group."}
             </DialogDescription>
           </DialogHeader>
           {membersGroup && (

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -20,6 +19,7 @@ import { useTheme } from "next-themes";
 import { signOut } from "@/actions/auth";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/ui/logo";
+import { useLocalStorageFlag, useMounted } from "@/lib/hooks/use-mounted";
 
 const navItems = [
   { label: "Dashboard", path: "/", icon: LayoutDashboard },
@@ -40,10 +40,9 @@ interface SidebarProps {
 
 export function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useLocalStorageFlag("splitease:sidebar-collapsed");
   const { resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const mounted = useMounted();
 
   const displayName = user.name ?? user.email?.split("@")[0] ?? "User";
   const initials = displayName

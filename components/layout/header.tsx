@@ -1,13 +1,20 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Plus, Settings, UserPen, LogOut, Sun, Moon } from "lucide-react";
+import { Plus, Settings, UserPen, LogOut, Sun, Moon, BarChart3 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { signOut } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useQuickAdd } from "@/components/quick-add-expense";
 
 const titleMap: Record<string, string> = {
   "/": "Dashboard",
@@ -28,11 +35,11 @@ interface HeaderProps {
 
 export function Header({ user }: HeaderProps) {
   const pathname = usePathname();
-  const [menuOpen, setMenuOpen] = useState(false);
   const { resolvedTheme, setTheme } = useTheme();
+  const { open } = useQuickAdd();
 
   const title = pathname.startsWith("/groups/")
-    ? "Groups"
+    ? "Group"
     : titleMap[pathname] ?? "Dashboard";
 
   const displayName = user.name ?? user.email?.split("@")[0] ?? "User";
@@ -44,98 +51,76 @@ export function Header({ user }: HeaderProps) {
     .slice(0, 2);
 
   return (
-    <header className="sticky top-0 z-10 border-b border-border bg-card/80 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
-        <h1 className="text-xl font-semibold">{title}</h1>
+    <header className="sticky top-0 z-20 border-b border-border bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/70">
+      <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
+        <h1 className="text-lg font-semibold sm:text-xl">{title}</h1>
 
         {/* Desktop: Add Expense CTA */}
-        <div className="hidden md:flex items-center gap-3">
-          <Button asChild>
-            <Link href="/expenses?create=true">
-              <Plus className="h-4 w-4" />
-              Add Expense
-            </Link>
+        <div className="hidden items-center gap-3 md:flex">
+          <Button onClick={() => open()}>
+            <Plus className="h-4 w-4" />
+            Add Expense
           </Button>
         </div>
 
-        {/* Mobile: User avatar button */}
-        <div className="relative md:hidden">
-          <button
-            type="button"
-            onClick={() => setMenuOpen(!menuOpen)}
-            className={cn(
-              "flex h-9 w-9 items-center justify-center rounded-full text-xs font-semibold transition-all",
-              menuOpen
-                ? "ring-2 ring-emerald-500 bg-emerald-100 text-emerald-700 dark:ring-emerald-400 dark:bg-emerald-900/50 dark:text-emerald-300"
-                : "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
-            )}
-          >
-            {initials}
-          </button>
-
-          {/* Dropdown menu */}
-          {menuOpen && (
-            <>
-              <div
-                className="fixed inset-0 z-30"
-                onClick={() => setMenuOpen(false)}
-              />
-              <div className="absolute right-0 top-full z-40 mt-2 w-56 rounded-xl border border-border bg-card p-1.5 shadow-xl">
-                {/* User info */}
-                <div className="px-3 py-2.5 border-b border-border mb-1">
-                  <p className="text-sm font-medium truncate">{displayName}</p>
-                  {user.email && (
-                    <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-                  )}
-                </div>
-
-                {/* Menu items */}
-                <Link
-                  href="/settings#profile"
-                  onClick={() => setMenuOpen(false)}
-                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                >
+        {/* Mobile: user menu */}
+        <div className="md:hidden">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label="Account menu"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-xs font-semibold text-emerald-600 transition-all data-[state=open]:ring-2 data-[state=open]:ring-emerald-500 dark:bg-emerald-900/30 dark:text-emerald-400"
+              >
+                {initials}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-60 rounded-xl p-1.5">
+              <DropdownMenuLabel className="font-normal">
+                <p className="truncate text-sm font-medium">{displayName}</p>
+                {user.email && (
+                  <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+                )}
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild className="rounded-lg py-2.5">
+                <Link href="/analytics">
+                  <BarChart3 className="h-4 w-4" />
+                  Analytics
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild className="rounded-lg py-2.5">
+                <Link href="/settings#profile">
                   <UserPen className="h-4 w-4" />
                   Edit Profile
                 </Link>
-                <Link
-                  href="/settings"
-                  onClick={() => setMenuOpen(false)}
-                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                >
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild className="rounded-lg py-2.5">
+                <Link href="/settings">
                   <Settings className="h-4 w-4" />
                   Settings
                 </Link>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTheme(resolvedTheme === "dark" ? "light" : "dark");
-                    setMenuOpen(false);
-                  }}
-                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                >
-                  {resolvedTheme === "dark" ? (
-                    <Sun className="h-4 w-4" />
-                  ) : (
-                    <Moon className="h-4 w-4" />
-                  )}
-                  {resolvedTheme === "dark" ? "Light Mode" : "Dark Mode"}
-                </button>
-
-                <div className="my-1 border-t border-border" />
-
-                <form action={signOut}>
-                  <button
-                    type="submit"
-                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-red-500 dark:text-red-400 transition-colors hover:bg-red-50 dark:hover:bg-red-900/20"
-                  >
-                    <LogOut className="h-4 w-4" />
-                    Sign Out
-                  </button>
-                </form>
-              </div>
-            </>
-          )}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="rounded-lg py-2.5"
+                onSelect={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+              >
+                {resolvedTheme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                {resolvedTheme === "dark" ? "Light Mode" : "Dark Mode"}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant="destructive"
+                className="rounded-lg py-2.5"
+                onSelect={() => {
+                  void signOut();
+                }}
+              >
+                <LogOut className="h-4 w-4" />
+                Sign Out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </header>

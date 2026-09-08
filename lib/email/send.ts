@@ -1,9 +1,10 @@
-import { resend } from "@/lib/resend";
+import { getResend } from "@/lib/resend";
 
 const FROM = process.env.EMAIL_FROM ?? "SplitEase <hello@ayushmishra.com>";
 
 export async function sendEmail(to: string, subject: string, html: string) {
-  if (!process.env.RESEND_API_KEY) return;
+  const resend = getResend();
+  if (!resend) return;
 
   const { error } = await resend.emails.send({ from: FROM, to, subject, html });
   if (error) {

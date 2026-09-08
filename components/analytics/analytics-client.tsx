@@ -79,6 +79,7 @@ export function AnalyticsClient({ data: initialData, groups }: AnalyticsClientPr
   }
 
   const hasData =
+    data.expenseCount > 0 ||
     data.monthlySpending.length > 0 ||
     data.categoryBreakdown.length > 0 ||
     data.groupComparison.length > 0 ||
@@ -89,14 +90,14 @@ export function AnalyticsClient({ data: initialData, groups }: AnalyticsClientPr
       <div className="space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
+            <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Analytics</h1>
             <p className="text-sm text-muted-foreground">
               Insights into your spending patterns
             </p>
           </div>
           {groups.length > 0 && (
             <Select value={selectedGroup} onValueChange={handleGroupChange}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="w-full sm:w-[200px]">
                 <SelectValue placeholder="Filter by group" />
               </SelectTrigger>
               <SelectContent>
@@ -159,7 +160,7 @@ export function AnalyticsClient({ data: initialData, groups }: AnalyticsClientPr
           )}
           {groups.length > 0 && (
             <Select value={selectedGroup} onValueChange={handleGroupChange}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="w-full sm:w-[200px]">
                 <SelectValue placeholder="Filter by group" />
               </SelectTrigger>
               <SelectContent>
@@ -175,7 +176,33 @@ export function AnalyticsClient({ data: initialData, groups }: AnalyticsClientPr
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      {/* Totals */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
+        <Card className="gap-0 py-3 sm:py-4">
+          <CardContent className="px-3 sm:px-5">
+            <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase sm:text-xs">Total spent</p>
+            <p className="truncate font-mono text-base font-semibold tabular-nums sm:text-xl">
+              {formatCurrency(data.totalSpent, data.currency)}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="gap-0 py-3 sm:py-4">
+          <CardContent className="px-3 sm:px-5">
+            <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase sm:text-xs">Your share</p>
+            <p className="truncate font-mono text-base font-semibold tabular-nums sm:text-xl">
+              {formatCurrency(data.yourShare, data.currency)}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="gap-0 py-3 sm:py-4">
+          <CardContent className="px-3 sm:px-5">
+            <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase sm:text-xs">Expenses</p>
+            <p className="truncate font-mono text-base font-semibold tabular-nums sm:text-xl">{data.expenseCount}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
         {/* Monthly Spending */}
         {data.monthlySpending.length > 0 && (
           <Card className="lg:col-span-2">
@@ -186,9 +213,9 @@ export function AnalyticsClient({ data: initialData, groups }: AnalyticsClientPr
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-[300px] w-full">
+              <div className="h-[240px] w-full sm:h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={monthlyData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                  <BarChart data={monthlyData} margin={{ top: 5, right: 8, left: -8, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                     <XAxis
                       dataKey="label"
@@ -202,8 +229,8 @@ export function AnalyticsClient({ data: initialData, groups }: AnalyticsClientPr
                     />
                     <Tooltip
                       contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
+                        backgroundColor: "var(--card)",
+                        border: "1px solid var(--border)",
                         borderRadius: "0.75rem",
                         fontSize: "0.875rem",
                       }}
@@ -249,8 +276,8 @@ export function AnalyticsClient({ data: initialData, groups }: AnalyticsClientPr
                     </Pie>
                     <Tooltip
                       contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
+                        backgroundColor: "var(--card)",
+                        border: "1px solid var(--border)",
                         borderRadius: "0.75rem",
                         fontSize: "0.875rem",
                       }}
@@ -313,8 +340,8 @@ export function AnalyticsClient({ data: initialData, groups }: AnalyticsClientPr
                     />
                     <Tooltip
                       contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
+                        backgroundColor: "var(--card)",
+                        border: "1px solid var(--border)",
                         borderRadius: "0.75rem",
                         fontSize: "0.875rem",
                       }}
