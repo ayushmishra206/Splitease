@@ -112,10 +112,20 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ### Upgrading an existing database
 
-Multi-payer support adds one table, `expense_payers`. Run `npx prisma db push`
+Multi-payer support adds one table, `expense_payers`. Run `npm run db:push`
 after pulling. No backfill is needed: expenses without payer rows are treated as
 paid in full by their `payer_id`. See `docs/audit/2026-09-08-code-and-ux-audit.md`
 for the optional backfill SQL and the full audit.
+
+If you cannot run the Prisma CLI against the database (for example, you only
+have the Neon SQL editor), apply
+[`prisma/sql/2026-09-08-add-expense-payers.sql`](prisma/sql/2026-09-08-add-expense-payers.sql)
+instead. It is idempotent and leaves the database in sync with the Prisma schema.
+
+A database missing this table makes every page that reads expenses — dashboard,
+expenses, groups, group detail and analytics — fail with a Server Components
+render error, because Prisma raises `P2021: The table public.expense_payers does
+not exist in the current database`.
 
 ### Quality checks
 
@@ -135,6 +145,16 @@ To enable Google sign-in locally, add `http://localhost:3000/api/auth/callback/g
 2. Import the project in [Vercel](https://vercel.com)
 3. Add the environment variables above (set `AUTH_URL` and `NEXT_PUBLIC_APP_URL` to your production URL)
 4. Deploy
+
+`npm run build` runs `prisma db push` before `next build`, so a deploy applies
+any schema change along with the code that needs it. Two consequences worth
+knowing:
+
+- `DATABASE_URL` and `DIRECT_URL` must be set for the build, not just at runtime.
+- `db push` is deliberately run without `--accept-data-loss`. A deploy of a
+  commit whose schema would drop a column or table fails the build instead of
+  destroying data — including a rollback to a commit older than a schema change.
+  Apply such a change to the database by hand first.
 
 ## Project Structure
 
